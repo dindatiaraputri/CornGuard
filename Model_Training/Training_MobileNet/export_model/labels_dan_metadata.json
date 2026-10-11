@@ -1,0 +1,18 @@
+{
+  "arsitektur": "MobileNetV2",
+  "kelas": [
+    "Blight",
+    "Common_Rust",
+    "Gray_Leaf_Spot",
+    "Healthy"
+  ],
+  "input_shape": [
+    224,
+    224,
+    3
+  ],
+  "input_dtype": "float32, nilai piksel 0-255 (preprocessing sudah di dalam model)",
+  "output": "softmax 4 kelas",
+  "sumber_model": "model_tahap1.keras",
+  "akurasi_validasi": 0.9601
+}
