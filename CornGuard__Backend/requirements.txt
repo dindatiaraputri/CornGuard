@@ -1,0 +1,6 @@
+# Minimal untuk menjalankan backend (Django + layanan AI). Versi diambil dari pip freeze milikmu.
+Django==6.0.3
+djangorestframework==3.17.1
+numpy==2.4.4
+onnxruntime==1.31.0
+opencv-python==5.0.0.93

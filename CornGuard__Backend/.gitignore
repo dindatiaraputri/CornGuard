@@ -1,0 +1,32 @@
+# Python environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Django
+api/db.sqlite3
+api/media/
+api/staticfiles/
+
+# Temporary files
+*.log
+.DS_Store
+Thumbs.db
+
+# Test outputs
+ai_service/tests/comparison/
+ai_service/tests/result_*.jpg
+
+# Model AI (besar; simpan di Drive, jangan di Git)
+ai_service/models/*.pt
+ai_service/models/*.onnx
+ai_service/models/*.keras
+ai_service/models/*.tflite
