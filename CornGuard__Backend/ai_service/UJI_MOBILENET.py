@@ -3,7 +3,11 @@ Uji MobileNet (classifier.onnx) memakai kode classifier milik backend.
 
 Taruh file ini di folder `ai_service/` (sejajar dengan folder `app/`), lalu jalankan:
 
-    python uji_mobilenet.py <folder_foto> [--maks 50]
+    python uji_mobilenet.py <folder_foto> [--maks 50] [--simpan hasil_salah.csv]
+
+Opsi:
+    --maks N        maksimal foto per kelas (isi angka besar, mis. 5000, untuk menguji semua)
+    --simpan FILE   simpan SEMUA foto yang salah ke file CSV (bisa dibuka di Excel)
 
 Struktur <folder_foto> (nama subfolder harus sama dengan nama kelas):
     folder_foto/
@@ -14,6 +18,7 @@ Struktur <folder_foto> (nama subfolder harus sama dengan nama kelas):
 Subfolder yang tidak ada akan dilewati.
 """
 import argparse
+import csv
 import pathlib
 import random
 from collections import Counter
@@ -29,6 +34,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folder")
     ap.add_argument("--maks", type=int, default=50, help="maksimal foto per kelas")
+    ap.add_argument("--simpan", default=None, help="simpan semua foto yang salah ke CSV")
     a = ap.parse_args()
 
     clf = ONNXClassifier()
@@ -63,7 +69,7 @@ def main():
                 benar[k] += 1
             else:
                 tertukar[(k, r["label"])] += 1
-                salah_list.append((f.name, k, r["label"], r["confidence"]))
+                salah_list.append((f.name, k, r["label"], r["confidence"], str(f)))
 
     total = sum(jumlah.values())
     if total == 0:
@@ -83,8 +89,15 @@ def main():
         for (asli, tebak), n in tertukar.most_common(5):
             print(f"  {asli} -> {tebak}: {n}")
         print("\nContoh foto yang salah (maks 8):")
-        for nama, asli, tebak, kyk in salah_list[:8]:
+        for nama, asli, tebak, kyk, _ in salah_list[:8]:
             print(f"  {nama}: asli {asli}, tebakan {tebak} (keyakinan {kyk})")
+
+    if a.simpan:
+        with open(a.simpan, "w", newline="", encoding="utf-8-sig") as fh:
+            w = csv.writer(fh)
+            w.writerow(["nama_file", "kelas_asli", "tebakan", "keyakinan", "lokasi"])
+            w.writerows(sorted(salah_list, key=lambda t: (t[1], -t[3])))
+        print(f"\n{len(salah_list)} foto salah disimpan ke: {a.simpan}")
 
     # Diagnosis cepat
     print("\nDiagnosis:")
