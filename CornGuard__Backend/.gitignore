@@ -26,3 +26,7 @@ ai_service/tests/comparison/
 ai_service/tests/result_*.jpg
 
 hasil_deteksi/
+
+hasil_salah/
+
+ai_service/tests/
