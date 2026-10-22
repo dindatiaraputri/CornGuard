@@ -25,6 +25,18 @@ Thumbs.db
 ai_service/tests/comparison/
 ai_service/tests/result_*.jpg
 
+# Machine Learning Models
+*.pt
+*.onnx
+*.weights
+*.h5
+
+# Dataset & Test Outputs
+ai_service/corn_dataset_uji_baru/
+ai_service/hasil_deteksi/
+ai_service/tests/*.JPG
+ai_service/tests/*.jpg
+
 hasil_deteksi/
 
 hasil_salah/
