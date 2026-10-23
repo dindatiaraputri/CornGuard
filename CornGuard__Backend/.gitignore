@@ -39,7 +39,7 @@ ai_service/tests/*.jpg
 
 hasil_deteksi/
 media/
-hasil_salah/
+*.csv
 
 ai_service/tests/
 
