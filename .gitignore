@@ -1,14 +1,23 @@
 # Hasil training YOLOv8
 Model_Training/Training_YOLOv8/results/*.zip
 
+# Abaikan semua isi folder Model_Training secara default
+Model_Training/**
+
+# Izinkan folder dan file script/dokumentasi
+!Model_Training/
+!Model_Training/**/
+!Model_Training/**/*.ipynb
+!Model_Training/**/*.json
+!Model_Training/**/*.md
+!Model_Training/**/*.txt
+
+# Tetap blokir file berat & dataset di dalam Model_Training
+Model_Training/**/*.keras
+Model_Training/**/*.tflite
+Model_Training/**/*.pt
+Model_Training/**/*.onnx
 Model_Training/**/*.jpg
 Model_Training/**/*.jpeg
 Model_Training/**/*.png
 Model_Training/**/*.JPG
-Model_Training/**/*.zip
-Model_Training/**/corn_dataset_clean/
-Model_Training/**/corn_dataset_uji_baru/
-*.pt
-*.onnx
-*.csv
-media/

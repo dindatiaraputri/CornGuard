@@ -52,23 +52,3 @@ ai_service/tests/
 *.zip
 media/
 
-# Abaikan semua isi folder Model_Training secara default
-Model_Training/**
-
-# Izinkan folder dan file script/dokumentasi
-!Model_Training/
-!Model_Training/**/
-!Model_Training/**/*.ipynb
-!Model_Training/**/*.json
-!Model_Training/**/*.md
-!Model_Training/**/*.txt
-
-# Tetap blokir file berat & dataset di dalam Model_Training
-Model_Training/**/*.keras
-Model_Training/**/*.tflite
-Model_Training/**/*.pt
-Model_Training/**/*.onnx
-Model_Training/**/*.jpg
-Model_Training/**/*.jpeg
-Model_Training/**/*.png
-Model_Training/**/*.JPG
