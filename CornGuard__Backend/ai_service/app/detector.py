@@ -45,6 +45,14 @@ class YOLODetector:
         )
         self.iou_threshold = iou_threshold
 
+        # "letterbox": pertahankan rasio + pita abu-abu. "stretch": paksa persegi tanpa pita.
+        self.resize_mode = str(self.meta.get("resize_mode", "letterbox")).lower()
+        if self.resize_mode not in ("letterbox", "stretch"):
+            raise ValueError(
+                f"resize_mode '{self.resize_mode}' tidak dikenal; "
+                "pilihan: 'letterbox' atau 'stretch'"
+            )
+
         self.session = ort.InferenceSession(
             str(model_path),
             providers=["CPUExecutionProvider"],
@@ -75,43 +83,62 @@ class YOLODetector:
         self.num_classes = len(self.classes)
 
     def _preprocess(self, image):
-        """Resize dan letterbox gambar ke ukuran tetap model ONNX."""
+        """Siapkan gambar untuk model ONNX (ukuran tetap target x target).
+
+        Mengembalikan: tensor, scale_x, scale_y, pad_kiri, pad_atas.
+
+        resize_mode (dari model_meta.json):
+          letterbox : pertahankan rasio, sisanya diisi abu-abu (gaya bawaan Ultralytics).
+          stretch   : paksa persegi tanpa pita abu-abu. Cocok bila foto latihan persegi
+                      (dataset ini 640x640) sehingga model tidak pernah melihat pita abu-abu.
+        """
 
         height, width = image.shape[:2]
         target = self.input_size
 
-        # Pertahankan rasio gambar
-        scale = min(target / width, target / height)
+        if self.resize_mode == "stretch":
+            padded = cv2.resize(
+                image,
+                (target, target),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            scale_x = target / width
+            scale_y = target / height
+            left = top = 0
+        else:
+            # Pertahankan rasio gambar
+            scale = min(target / width, target / height)
+            scale_x = scale_y = scale
 
-        new_width = int(round(width * scale))
-        new_height = int(round(height * scale))
+            new_width = int(round(width * scale))
+            new_height = int(round(height * scale))
 
-        resized = cv2.resize(
-            image,
-            (new_width, new_height),
-            interpolation=cv2.INTER_LINEAR,
-        )
+            resized = cv2.resize(
+                image,
+                (new_width, new_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
 
-        # Padding hingga tepat target x target
-        pad_w = target - new_width
-        pad_h = target - new_height
+            # Padding hingga tepat target x target
+            pad_w = target - new_width
+            pad_h = target - new_height
 
-        left = pad_w // 2
-        right = pad_w - left
-        top = pad_h // 2
-        bottom = pad_h - top
+            left = pad_w // 2
+            right = pad_w - left
+            top = pad_h // 2
+            bottom = pad_h - top
 
-        padded = cv2.copyMakeBorder(
-            resized,
-            top,
-            bottom,
-            left,
-            right,
-            cv2.BORDER_CONSTANT,
-            value=(114, 114, 114),
-        )
+            padded = cv2.copyMakeBorder(
+                resized,
+                top,
+                bottom,
+                left,
+                right,
+                cv2.BORDER_CONSTANT,
+                value=(114, 114, 114),
+            )
 
-        # BGR ke RGB, HWC ke CHW, normalisasi ke 0–1
+        # BGR ke RGB, HWC ke CHW, normalisasi ke 0-1
         rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
         tensor = rgb.transpose(2, 0, 1)
         tensor = np.ascontiguousarray(tensor, dtype=np.float32)
@@ -123,8 +150,7 @@ class YOLODetector:
             f"Shape tensor tidak sesuai: {tensor.shape}"
         )
 
-        return tensor, scale, left, top
-
+        return tensor, scale_x, scale_y, left, top
 
     def predict(self, image):
         """Detect objects in an OpenCV BGR image."""
@@ -141,7 +167,7 @@ class YOLODetector:
 
         original_height, original_width = image.shape[:2]
 
-        tensor, scale, pad_x, pad_y = self._preprocess(image)
+        tensor, scale_x, scale_y, pad_x, pad_y = self._preprocess(image)
 
         output = self.session.run(
             [self.output_name],
@@ -238,11 +264,11 @@ class YOLODetector:
         for index in selected:
             x1, y1, x2, y2 = boxes_xyxy[index]
 
-            # Remove letterbox padding and reverse resize.
-            x1 = (x1 - pad_x) / scale
-            y1 = (y1 - pad_y) / scale
-            x2 = (x2 - pad_x) / scale
-            y2 = (y2 - pad_y) / scale
+            # Hilangkan padding (bila letterbox) lalu kembalikan ke ukuran asli.
+            x1 = (x1 - pad_x) / scale_x
+            y1 = (y1 - pad_y) / scale_y
+            x2 = (x2 - pad_x) / scale_x
+            y2 = (y2 - pad_y) / scale_y
 
             x1 = float(np.clip(x1, 0, original_width))
             y1 = float(np.clip(y1, 0, original_height))
