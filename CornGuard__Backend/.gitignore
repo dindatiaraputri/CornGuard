@@ -52,3 +52,6 @@ ai_service/tests/
 *.zip
 media/
 
+# Izinkan file model utama backend
+!ai_service/models/*.onnx
+!ai_service/models/*.pt
