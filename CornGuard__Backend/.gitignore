@@ -43,7 +43,6 @@ media/
 
 ai_service/tests/
 
-Model_Training/
 *.jpg
 *.jpeg
 *.png

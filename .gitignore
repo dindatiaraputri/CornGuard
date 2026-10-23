@@ -1,12 +1,14 @@
 # Hasil training YOLOv8
 Model_Training/Training_YOLOv8/results/*.zip
 
-Model_Training/
-*.jpg
-*.jpeg
-*.png
-*.JPG
+Model_Training/**/*.jpg
+Model_Training/**/*.jpeg
+Model_Training/**/*.png
+Model_Training/**/*.JPG
+Model_Training/**/*.zip
+Model_Training/**/corn_dataset_clean/
+Model_Training/**/corn_dataset_uji_baru/
 *.pt
 *.onnx
-*.zip
+*.csv
 media/
