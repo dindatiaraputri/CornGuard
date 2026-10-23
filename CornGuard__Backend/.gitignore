@@ -38,7 +38,17 @@ ai_service/tests/*.JPG
 ai_service/tests/*.jpg
 
 hasil_deteksi/
-
+media/
 hasil_salah/
 
 ai_service/tests/
+
+Model_Training/
+*.jpg
+*.jpeg
+*.png
+*.JPG
+*.pt
+*.onnx
+*.zip
+media/

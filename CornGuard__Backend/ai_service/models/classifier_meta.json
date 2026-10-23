@@ -1,6 +1,12 @@
 {
-  "input_size": 224,
-  "classes": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
-  "preprocess": "none",
-  "resize": "stretch"
+    "input_size": 224,
+    "classes": [
+        "Blight",
+        "Bulai",
+        "Common_Rust",
+        "Gray_Leaf_Spot",
+        "Healthy"
+    ],
+    "preprocess": "none",
+    "resize": "stretch"
 }

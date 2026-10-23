@@ -1,2 +1,12 @@
 # Hasil training YOLOv8
 Model_Training/Training_YOLOv8/results/*.zip
+
+Model_Training/
+*.jpg
+*.jpeg
+*.png
+*.JPG
+*.pt
+*.onnx
+*.zip
+media/

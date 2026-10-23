@@ -6,6 +6,6 @@
   "classes": [
     "Bulai"
   ],
-  "conf_threshold": 0.2392,
+  "conf_threshold": 0.15,
   "resize_mode": "stretch"
 }

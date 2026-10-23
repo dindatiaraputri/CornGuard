@@ -1,12 +1,14 @@
 import logging
-
+import os
 import cv2
 import numpy as np
+from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
+from .models import Diagnosis, Recommendation
 from .ai import PipelineNotReady, get_detector, get_pipeline, model_status
 
 log = logging.getLogger(__name__)
@@ -73,6 +75,81 @@ def diagnose_image(request):
             {"success": False, "message": "Terjadi kesalahan saat menjalankan diagnosis."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+    # --- TAMBAHAN: Validasi Anomali / Foto Bukan Daun ---
+    lokasi_list = result.get("lokasi", [])
+    
+# --- TAMBAHAN: Validasi Anomali Untuk Semua Jenis Penyakit ---
+    top_confidence = result.get("kepercayaan", 0)
+    lokasi_list = result.get("lokasi", [])
+    penyakit = result.get("penyakit")
+
+    # 1. Jika tertebak Bulai TAPI YOLO tidak menemukan objek sama sekali -> Tolak
+    if penyakit == "Bulai" and not lokasi_list:
+        return Response(
+            {
+                "success": False,
+                "message": "Gejala tidak terdeteksi dengan jelas. Harap ambil foto daun jagung dari jarak dekat."
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 2. Jika tertebak penyakit lain (Common Rust / Blight / dll) TAPI confidence ragu-ragu (< 75%)
+    if top_confidence < 0.70:
+        return Response(
+            {
+                "success": False,
+                "message": "Gambar tidak terdeteksi sebagai daun jagung yang valid. Mohon pastikan pencahayaan cukup dan foto fokus pada daun."
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Tetap simpan ke database untuk SEMUA kondisi yang lolos (termasuk jika YOLO lokasi-nya kosong)
+    rec = Recommendation.objects.filter(label=result["penyakit"]).first()
+    Diagnosis.objects.create(
+        label=result["penyakit"],
+        confidence=result["kepercayaan"],
+        scores=result["skor_kelas"],
+        detections=result.get("lokasi", []),
+        recommendation=rec,
+    )
+    result["rekomendasi"] = rec.content if rec else None
+
+    # Simpan ke Database jika lolos validasi
+    rec = Recommendation.objects.filter(label=result["penyakit"]).first()
+    Diagnosis.objects.create(
+        label=result["penyakit"],
+        confidence=result["kepercayaan"],
+        scores=result["skor_kelas"],
+        detections=lokasi_list,
+        recommendation=rec,
+    )
+    result["rekomendasi"] = rec.content if rec else None
+
+    # --- Visualisasi Bounding Box ---
+    if lokasi_list:
+        img_visual = image.copy()
+        for item in lokasi_list:
+            x1, y1 = int(item.get("x1", 0)), int(item.get("y1", 0))
+            x2, y2 = int(item.get("x2", 0)), int(item.get("y2", 0))
+            conf = item.get("confidence", 0)
+
+            cv2.rectangle(img_visual, (x1, y1), (x2, y2), (0, 0, 255), 3)
+            cv2.putText(
+                img_visual,
+                f"Bulai {conf}",
+                (x1, max(y1 - 10, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 0, 255),
+                2,
+            )
+
+        output_dir = os.path.join(settings.BASE_DIR, "media", "hasil_deteksi")
+        os.makedirs(output_dir, exist_ok=True)
+        save_path = os.path.join(output_dir, "latest_result.jpg")
+        cv2.imwrite(save_path, img_visual)
+
     return Response({"success": True, **result})
 
 
