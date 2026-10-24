@@ -1,4 +1,3 @@
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -17,7 +16,6 @@ class ResultScreen extends StatefulWidget {
   static const Color green = Color(0xFF6B8E5A);
   static const Color darkGreen = Color(0xFF36543A);
   static const Color brown = Color(0xFF5A4635);
-  static const Color gold = Color(0xFFC4A66A);
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -44,8 +42,7 @@ class _ResultScreenState extends State<ResultScreen> {
     }
 
     try {
-      final response =
-          await ApiServices.diagnoseImage(widget.image);
+      final response = await ApiServices.diagnoseImage(widget.image);
 
       if (!mounted) return;
 
@@ -68,8 +65,6 @@ class _ResultScreenState extends State<ResultScreen> {
     if (value is! num) return null;
 
     double confidence = value.toDouble();
-
-    // Backend saat ini menggunakan ambang 0.70 = 70%.
     if (confidence <= 1) {
       confidence *= 100;
     }
@@ -77,32 +72,20 @@ class _ResultScreenState extends State<ResultScreen> {
     return confidence.clamp(0, 100).toDouble();
   }
 
-  List<String> _recommendations() {
+  // Mengambil teks rekomendasi utuh tanpa memotongnya jadi "Rekomendasi 1-4"
+  String _recommendationText() {
     final value = result?['rekomendasi'];
-
-    if (value is List) {
-      return value
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-    }
-
     if (value is String && value.trim().isNotEmpty) {
-      return value
-          .split(RegExp(r'[\n\r]+'))
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
+      return value.trim();
     }
-
-    return [];
+    return 'Belum ada rekomendasi penanganan khusus untuk hasil ini.';
   }
 
   @override
   Widget build(BuildContext context) {
     final penyakit = result?['penyakit']?.toString();
     final confidence = _confidence();
-    final recommendations = _recommendations();
+    final recommendationText = _recommendationText();
     final hasResult = result != null && penyakit != null;
 
     return Scaffold(
@@ -150,18 +133,9 @@ class _ResultScreenState extends State<ResultScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 5),
-            const Text(
-              'Lihat hasil pemeriksaan daun jagung dan '
-              'rekomendasi penanganannya.',
-              style: TextStyle(
-                color: ResultScreen.brown,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
             const SizedBox(height: 20),
 
+            // CARD FOTO SAMPEL (SUDAH DIPERBAIKI SUPAYA TIDAK GEPENG)
             _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,7 +145,6 @@ class _ResultScreenState extends State<ResultScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      height: 220,
                       width: double.infinity,
                       color: const Color(0xFFE7EBDD),
                       child: FutureBuilder<Uint8List>(
@@ -179,25 +152,29 @@ class _ResultScreenState extends State<ResultScreen> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(
-                                color: ResultScreen.green,
+                            return const Padding(
+                              padding: EdgeInsets.all(40.0),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: ResultScreen.green,
+                                ),
                               ),
                             );
                           }
 
-                          if (snapshot.hasError ||
-                              !snapshot.hasData) {
-                            return const Center(
-                              child: Text(
-                                'Foto tidak dapat ditampilkan.',
+                          if (snapshot.hasError || !snapshot.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: Center(
+                                child: Text('Foto tidak dapat ditampilkan.'),
                               ),
                             );
                           }
 
+                          // FIT CONTAIN AGAR GAMBAR PROPORSIONAL LENGKAP
                           return Image.memory(
                             snapshot.data!,
-                            fit: BoxFit.cover,
+                            fit: BoxFit.contain,
                           );
                         },
                       ),
@@ -213,7 +190,7 @@ class _ResultScreenState extends State<ResultScreen> {
                       ),
                       SizedBox(width: 6),
                       Text(
-                        'Foto berhasil dipilih',
+                        'Foto berhasil dianalisis',
                         style: TextStyle(
                           color: ResultScreen.green,
                           fontWeight: FontWeight.w600,
@@ -228,13 +205,13 @@ class _ResultScreenState extends State<ResultScreen> {
 
             const SizedBox(height: 15),
 
+            // CARD HASIL IDENTIFIKASI
             _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _Label('HASIL IDENTIFIKASI'),
                   const SizedBox(height: 14),
-
                   if (isLoading) ...[
                     const Center(
                       child: Padding(
@@ -247,19 +224,9 @@ class _ResultScreenState extends State<ResultScreen> {
                             SizedBox(height: 16),
                             Text(
                               'Sedang menganalisis daun jagung...',
-                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: ResultScreen.brown,
                                 fontSize: 13,
-                              ),
-                            ),
-                            SizedBox(height: 6),
-                            Text(
-                              'Mohon tunggu, proses dapat memerlukan waktu.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: ResultScreen.brown,
-                                fontSize: 11,
                               ),
                             ),
                           ],
@@ -274,7 +241,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Deteksi belum berhasil',
+                      'Deteksi Belum Berhasil',
                       style: TextStyle(
                         color: ResultScreen.darkGreen,
                         fontSize: 19,
@@ -301,30 +268,11 @@ class _ResultScreenState extends State<ResultScreen> {
                       penyakit,
                       style: const TextStyle(
                         color: ResultScreen.darkGreen,
-                        fontSize: 23,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 9),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8EDDB),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'Hasil dari backend CornGuard',
-                        style: TextStyle(
-                          color: ResultScreen.darkGreen,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
                     const Text(
                       'Tingkat keyakinan model',
                       style: TextStyle(
@@ -339,12 +287,9 @@ class _ResultScreenState extends State<ResultScreen> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: LinearProgressIndicator(
-                              value: confidence == null
-                                  ? 0
-                                  : confidence / 100,
-                              minHeight: 8,
-                              backgroundColor:
-                                  const Color(0xFFE5E9DE),
+                              value: confidence == null ? 0 : confidence / 100,
+                              minHeight: 10,
+                              backgroundColor: const Color(0xFFE5E9DE),
                               color: ResultScreen.green,
                             ),
                           ),
@@ -356,56 +301,14 @@ class _ResultScreenState extends State<ResultScreen> {
                               : '${confidence.toStringAsFixed(1)}%',
                           style: const TextStyle(
                             color: ResultScreen.green,
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Hasil ini berasal dari model AI yang '
-                      'dijalankan oleh backend. Periksa kondisi '
-                      'tanaman secara langsung sebelum menentukan '
-                      'tindakan penanganan.',
-                      style: TextStyle(
-                        color: ResultScreen.brown,
-                        fontSize: 11,
-                        height: 1.6,
-                      ),
-                    ),
                   ],
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            const _SectionTitle(
-              eyebrow: 'INFORMASI',
-              title: 'Tentang Hasil',
-              icon: Icons.info_outline,
-            ),
-            const SizedBox(height: 10),
-            _card(
-              child: Text(
-                isLoading
-                    ? 'Informasi penyakit akan ditampilkan setelah '
-                        'proses deteksi selesai.'
-                    : errorMessage != null
-                        ? 'Belum ada hasil diagnosis. Pastikan backend '
-                            'dan model AI siap, kemudian coba kembali.'
-                        : hasResult
-                            ? 'Model mengidentifikasi sampel sebagai '
-                                '$penyakit. Hasil model merupakan informasi '
-                                'awal dan tidak menggantikan pemeriksaan '
-                                'langsung oleh petugas pertanian.'
-                            : 'Hasil diagnosis belum tersedia.',
-                style: const TextStyle(
-                  color: ResultScreen.brown,
-                  fontSize: 13,
-                  height: 1.7,
-                ),
               ),
             ),
 
@@ -418,56 +321,19 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 12),
 
-            if (isLoading)
-              _card(
-                child: const Text(
-                  'Menunggu hasil diagnosis dari backend...',
-                  style: TextStyle(
-                    color: ResultScreen.brown,
-                    fontSize: 12,
-                  ),
+            // CARD REKOMENDASI UTUH (TIDAK DIPISAH 'REKOMENDASI 1-4')
+            _card(
+              child: Text(
+                isLoading
+                    ? 'Menunggu hasil diagnosis...'
+                    : errorMessage != null
+                        ? 'Rekomendasi belum tersedia.'
+                        : recommendationText,
+                style: const TextStyle(
+                  color: ResultScreen.brown,
+                  fontSize: 13,
+                  height: 1.7,
                 ),
-              )
-            else if (errorMessage != null)
-              _card(
-                child: const Text(
-                  'Rekomendasi belum tersedia karena diagnosis '
-                  'belum berhasil dilakukan.',
-                  style: TextStyle(
-                    color: ResultScreen.brown,
-                    fontSize: 12,
-                    height: 1.6,
-                  ),
-                ),
-              )
-            else if (recommendations.isEmpty)
-              _card(
-                child: const Text(
-                  'Belum ada rekomendasi dari backend untuk hasil ini.',
-                  style: TextStyle(
-                    color: ResultScreen.brown,
-                    fontSize: 12,
-                    height: 1.6,
-                  ),
-                ),
-              )
-            else
-              ...recommendations.asMap().entries.map((entry) {
-                return _Recommendation(
-                  number: (entry.key + 1).toString().padLeft(2, '0'),
-                  title: 'Rekomendasi ${entry.key + 1}',
-                  description: entry.value,
-                );
-              }),
-
-            const SizedBox(height: 8),
-            const Text(
-              'Gunakan hasil deteksi sebagai informasi awal. '
-              'Pastikan diagnosis sebelum melakukan penanganan.',
-              style: TextStyle(
-                color: ResultScreen.brown,
-                fontSize: 10,
-                height: 1.5,
               ),
             ),
 
@@ -494,6 +360,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
   static Widget _card({required Widget child}) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -514,7 +381,6 @@ class _ResultScreenState extends State<ResultScreen> {
 
 class _Label extends StatelessWidget {
   final String text;
-
   const _Label(this.text);
 
   @override
@@ -581,78 +447,6 @@ class _SectionTitle extends StatelessWidget {
           child: Icon(icon, color: ResultScreen.green),
         ),
       ],
-    );
-  }
-}
-
-class _Recommendation extends StatelessWidget {
-  final String number;
-  final String title;
-  final String description;
-
-  const _Recommendation({
-    required this.number,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9E4D8)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8EDDB),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: ResultScreen.green,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: ResultScreen.darkGreen,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: ResultScreen.brown,
-                    fontSize: 11,
-                    height: 1.6,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

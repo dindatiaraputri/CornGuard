@@ -94,7 +94,7 @@ def diagnose_image(request):
         )
 
     # 2. Jika tertebak penyakit lain TAPI confidence ragu-ragu (< 70%)
-    if top_confidence < 0.70:
+    if top_confidence < 0.50:
         return Response(
             {
                 "success": False,
