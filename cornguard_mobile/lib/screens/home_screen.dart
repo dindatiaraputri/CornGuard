@@ -103,7 +103,7 @@ class HomeScreen extends StatelessWidget {
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                         ),
                         GestureDetector(
-                          onTap: () {},
+                          onTap: () => Navigator.pushNamed(context, '/history'), // DIUBAH (#68)
                           child: const Text('Lihat semua', style: TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold)),
                         ),
                       ],
@@ -223,6 +223,11 @@ class HomeScreen extends StatelessWidget {
       // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
+        // DIUBAH (#68): tab Diagnosis dan Riwayat sekarang bisa dibuka
+        onTap: (i) {
+          if (i == 1) Navigator.pushNamed(context, '/camera');
+          if (i == 2) Navigator.pushNamed(context, '/history');
+        },
         selectedItemColor: const Color(0xFF0F7A4D),
         unselectedItemColor: Colors.grey,
         items: const [
