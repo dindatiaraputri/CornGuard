@@ -1,11 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:cornguard_mobile/services/api_services.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   static const Color primaryGreen = Color(0xFF176B45);
   static const Color lightGreen = Color(0xFFEAF3E8);
   static const Color backgroundColor = Color(0xFFF5F7F0);
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  static const Color primaryGreen = LoginScreen.primaryGreen;
+  static const Color lightGreen = LoginScreen.lightGreen;
+  static const Color backgroundColor = LoginScreen.backgroundColor;
+
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Username dan password wajib diisi.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await ApiServices.login(username, password);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,20 +206,64 @@ class LoginScreen extends StatelessWidget {
 
                         const SizedBox(height: 24),
 
-                        // Tombol masuk tetap menggunakan navigasi lama
+                        // Input username & password
+                        TextField(
+                          controller: _usernameController,
+                          decoration: InputDecoration(
+                            labelText: 'Username',
+                            prefixIcon: const Icon(Icons.person_outline),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          onSubmitted: (_) => _handleLogin(),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Tombol masuk: login ke backend dulu
                         SizedBox(
                           height: 54,
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pushReplacementNamed(
-                                context,
-                                '/home',
-                              );
-                            },
-                            icon: const Icon(
-                              Icons.arrow_forward_rounded,
-                              color: Colors.white,
-                            ),
+                            onPressed: _isLoading ? null : _handleLogin,
+                            icon: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: Colors.white,
+                                  ),
                             label: const Text(
                               'Masuk ke Beranda',
                               style: TextStyle(

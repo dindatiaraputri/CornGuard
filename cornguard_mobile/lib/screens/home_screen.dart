@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cornguard_mobile/services/api_services.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -50,9 +51,36 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const CircleAvatar(
-                          backgroundColor: Color(0xFFE2E8F0),
-                          child: Text('BP', style: TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold)),
+                        // Avatar + menu Logout
+                        PopupMenuButton<String>(
+                          tooltip: 'Menu akun',
+                          onSelected: (value) async {
+                            if (value == 'logout') {
+                              await ApiServices.logout();
+                              if (!context.mounted) return;
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/login',
+                                (route) => false,
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem<String>(
+                              value: 'logout',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.logout, color: Colors.red, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Keluar'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          child: const CircleAvatar(
+                            backgroundColor: Color(0xFFE2E8F0),
+                            child: Text('BP', style: TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold)),
+                          ),
                         ),
                       ],
                     ),

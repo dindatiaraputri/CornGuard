@@ -1,19 +1,98 @@
-
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiServices {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  // Alamat server otomatis menyesuaikan perangkat:
+  // - Chrome / Windows : 127.0.0.1
+  // - Emulator Android : 10.0.2.2
+  // - HP asli          : ganti jadi IP laptop, contoh 'http://192.168.1.5:8000'
+  static String get baseUrl {
+    if (kIsWeb) return 'http://127.0.0.1:8000';
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://127.0.0.1:8000';
+  }
 
+  static const String _accessKey = 'access_token';
+  static const String _refreshKey = 'refresh_token';
+
+  // ---------------------------------------------------------------
+  // TOKEN
+  // ---------------------------------------------------------------
+  static Future<String?> getAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_accessKey);
+  }
+
+  static Future<bool> isLoggedIn() async {
+    final token = await getAccessToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessKey);
+    await prefs.remove(_refreshKey);
+  }
+
+  // ---------------------------------------------------------------
+  // LOGIN (JWT)
+  // ---------------------------------------------------------------
+  static Future<void> login(String username, String password) async {
+    final uri = Uri.parse('$baseUrl/api/auth/token/');
+
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_accessKey, data['access'] as String);
+        await prefs.setString(_refreshKey, data['refresh'] as String);
+        return;
+      }
+
+      if (response.statusCode == 400 || response.statusCode == 401) {
+        throw Exception('Username atau password salah.');
+      }
+
+      throw Exception('Login gagal (${response.statusCode}).');
+    } on TimeoutException {
+      throw Exception('Waktu koneksi habis. Pastikan server berjalan.');
+    } on http.ClientException {
+      throw Exception(
+        'Tidak dapat terhubung ke backend. '
+        'Periksa koneksi dan pastikan server berjalan.',
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // DIAGNOSIS FOTO
+  // ---------------------------------------------------------------
   static Future<Map<String, dynamic>> diagnoseImage(
     XFile imageFile,
   ) async {
     final uri = Uri.parse('$baseUrl/api/diagnose/');
 
     try {
+      final token = await getAccessToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Kamu belum login. Silakan login dulu.');
+      }
+
       // Membaca foto yang dipilih pengguna.
       final bytes = await imageFile.readAsBytes();
 
@@ -22,6 +101,9 @@ class ApiServices {
       }
 
       final request = http.MultipartRequest('POST', uri);
+
+      // Kirim token JWT supaya diterima backend.
+      request.headers['Authorization'] = 'Bearer $token';
 
       request.files.add(
         http.MultipartFile.fromBytes(
@@ -38,14 +120,19 @@ class ApiServices {
 
       final response = await http.Response.fromStream(streamed);
 
+      // Token kedaluwarsa / tidak valid.
+      if (response.statusCode == 401) {
+        await logout();
+        throw Exception('Sesi login habis. Silakan login ulang.');
+      }
+
       // Periksa respons JSON dari backend.
       dynamic decoded;
 
       try {
         decoded = jsonDecode(response.body);
       } on FormatException {
-        if (response.statusCode < 200 ||
-            response.statusCode >= 300) {
+        if (response.statusCode < 200 || response.statusCode >= 300) {
           throw Exception(
             'Server mengalami kesalahan '
             '(${response.statusCode}). Silakan coba lagi.',
@@ -58,9 +145,7 @@ class ApiServices {
       }
 
       if (decoded is! Map<String, dynamic>) {
-        throw Exception(
-          'Format respons backend tidak sesuai.',
-        );
+        throw Exception('Format respons backend tidak sesuai.');
       }
 
       // Diagnosis berhasil.
@@ -79,11 +164,9 @@ class ApiServices {
         );
       }
 
-      if (response.statusCode == 401 ||
-          response.statusCode == 403) {
+      if (response.statusCode == 403) {
         throw Exception(
-          serverMessage ??
-              'Akses ditolak oleh server. Periksa autentikasi.',
+          serverMessage ?? 'Akses ditolak oleh server.',
         );
       }
 
@@ -117,9 +200,7 @@ class ApiServices {
         'Periksa koneksi dan pastikan server berjalan.',
       );
     } on FormatException {
-      throw Exception(
-        'Data dari backend tidak dapat dibaca.',
-      );
+      throw Exception('Data dari backend tidak dapat dibaca.');
     } catch (e) {
       if (e is Exception) rethrow;
 
