@@ -25,7 +25,7 @@ cd api
 python manage.py migrate
 ```
 
-### 4. Jalankan Server Lokal
+### 4. Jalankan Server Lokal | Bisa langsung dimulai dari sini masuk ke folder D:\CORNGUARD_BACKEND\CornGuard__Backend\api> 
 ```powershell
 python manage.py runserver
 ```
