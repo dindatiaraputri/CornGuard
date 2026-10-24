@@ -4,7 +4,8 @@ import cv2
 import numpy as np
 from django.conf import settings
 from rest_framework import status
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -56,6 +57,7 @@ def detect_image(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])  # <-- 1. WAJIBKAN JWT AUTH
 @parser_classes([MultiPartParser, FormParser])
 def diagnose_image(request):
     """Pipeline hybrid: MobileNet, lalu YOLO hanya jika hasilnya Bulai."""
@@ -76,10 +78,7 @@ def diagnose_image(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # --- TAMBAHAN: Validasi Anomali / Foto Bukan Daun ---
-    lokasi_list = result.get("lokasi", [])
-    
-# --- TAMBAHAN: Validasi Anomali Untuk Semua Jenis Penyakit ---
+    # --- Validasi Anomali Untuk Semua Jenis Penyakit ---
     top_confidence = result.get("kepercayaan", 0)
     lokasi_list = result.get("lokasi", [])
     penyakit = result.get("penyakit")
@@ -94,7 +93,7 @@ def diagnose_image(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # 2. Jika tertebak penyakit lain (Common Rust / Blight / dll) TAPI confidence ragu-ragu (< 75%)
+    # 2. Jika tertebak penyakit lain TAPI confidence ragu-ragu (< 70%)
     if top_confidence < 0.70:
         return Response(
             {
@@ -104,20 +103,14 @@ def diagnose_image(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Tetap simpan ke database untuk SEMUA kondisi yang lolos (termasuk jika YOLO lokasi-nya kosong)
-    rec = Recommendation.objects.filter(label=result["penyakit"]).first()
-    Diagnosis.objects.create(
-        label=result["penyakit"],
-        confidence=result["kepercayaan"],
-        scores=result["skor_kelas"],
-        detections=result.get("lokasi", []),
-        recommendation=rec,
-    )
-    result["rekomendasi"] = rec.content if rec else None
+    # --- BACA USER DARI TOKEN JWT ---
+    # Jika user login via JWT, request.user otomatis terisi object User.
+    user_obj = request.user if request.user.is_authenticated else None
 
-    # Simpan ke Database jika lolos validasi
+    # Simpan ke Database (Cukup 1x Panggil)
     rec = Recommendation.objects.filter(label=result["penyakit"]).first()
     Diagnosis.objects.create(
+        user=user_obj,  # <-- 2. SIMPAN USER KE DATABASE!
         label=result["penyakit"],
         confidence=result["kepercayaan"],
         scores=result["skor_kelas"],
