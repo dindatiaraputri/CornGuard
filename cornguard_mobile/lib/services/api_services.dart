@@ -7,10 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiServices {
-  // Alamat server otomatis menyesuaikan perangkat:
-  // - Chrome / Windows : 127.0.0.1
-  // - Emulator Android : 10.0.2.2
-  // - HP asli          : ganti jadi IP laptop, contoh 'http://192.168.1.5:8000'
   static String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000';
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -22,9 +18,7 @@ class ApiServices {
   static const String _accessKey = 'access_token';
   static const String _refreshKey = 'refresh_token';
 
-  // ---------------------------------------------------------------
-  // TOKEN
-  // ---------------------------------------------------------------
+  // TOKEN & USER SESSION
   static Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_accessKey);
@@ -41,9 +35,7 @@ class ApiServices {
     await prefs.remove(_refreshKey);
   }
 
-  // ---------------------------------------------------------------
   // LOGIN (JWT)
-  // ---------------------------------------------------------------
   static Future<void> login(String username, String password) async {
     final uri = Uri.parse('$baseUrl/api/auth/token/');
 
@@ -73,15 +65,12 @@ class ApiServices {
       throw Exception('Waktu koneksi habis. Pastikan server berjalan.');
     } on http.ClientException {
       throw Exception(
-        'Tidak dapat terhubung ke backend. '
-        'Periksa koneksi dan pastikan server berjalan.',
+        'Tidak dapat terhubung ke backend. Periksa koneksi dan pastikan server berjalan.',
       );
     }
   }
 
-  // ---------------------------------------------------------------
   // DIAGNOSIS FOTO
-  // ---------------------------------------------------------------
   static Future<Map<String, dynamic>> diagnoseImage(
     XFile imageFile,
   ) async {
@@ -93,7 +82,6 @@ class ApiServices {
         throw Exception('Kamu belum login. Silakan login dulu.');
       }
 
-      // Membaca foto yang dipilih pengguna.
       final bytes = await imageFile.readAsBytes();
 
       if (bytes.isEmpty) {
@@ -101,8 +89,6 @@ class ApiServices {
       }
 
       final request = http.MultipartRequest('POST', uri);
-
-      // Kirim token JWT supaya diterima backend.
       request.headers['Authorization'] = 'Bearer $token';
 
       request.files.add(
@@ -113,74 +99,59 @@ class ApiServices {
         ),
       );
 
-      // Mengirim foto ke backend dengan batas waktu 120 detik.
       final streamed = await request.send().timeout(
         const Duration(seconds: 120),
       );
 
       final response = await http.Response.fromStream(streamed);
 
-      // Token kedaluwarsa / tidak valid.
       if (response.statusCode == 401) {
         await logout();
         throw Exception('Sesi login habis. Silakan login ulang.');
       }
 
-      // Periksa respons JSON dari backend.
       dynamic decoded;
-
       try {
         decoded = jsonDecode(response.body);
       } on FormatException {
         if (response.statusCode < 200 || response.statusCode >= 300) {
           throw Exception(
-            'Server mengalami kesalahan '
-            '(${response.statusCode}). Silakan coba lagi.',
+            'Server mengalami kesalahan (${response.statusCode}). Silakan coba lagi.',
           );
         }
 
-        throw Exception(
-          'Respons backend tidak valid. Silakan coba lagi.',
-        );
+        throw Exception('Respons backend tidak valid. Silakan coba lagi.');
       }
 
       if (decoded is! Map<String, dynamic>) {
         throw Exception('Format respons backend tidak sesuai.');
       }
 
-      // Diagnosis berhasil.
       if (response.statusCode >= 200 &&
           response.statusCode < 300 &&
           decoded['success'] == true) {
         return decoded;
       }
 
-      // Menampilkan pesan dari backend jika tersedia.
       final serverMessage = decoded['message']?.toString();
 
       if (response.statusCode == 400) {
-        throw Exception(
-          serverMessage ?? 'Foto atau permintaan tidak valid.',
-        );
+        throw Exception(serverMessage ?? 'Foto atau permintaan tidak valid.');
       }
 
       if (response.statusCode == 403) {
-        throw Exception(
-          serverMessage ?? 'Akses ditolak oleh server.',
-        );
+        throw Exception(serverMessage ?? 'Akses ditolak oleh server.');
       }
 
       if (response.statusCode == 404) {
         throw Exception(
-          'Endpoint diagnosis tidak ditemukan. '
-          'Periksa konfigurasi backend.',
+          'Endpoint diagnosis tidak ditemukan. Periksa konfigurasi backend.',
         );
       }
 
       if (response.statusCode >= 500) {
         throw Exception(
-          'Server atau layanan AI sedang bermasalah. '
-          'Silakan coba lagi nanti.',
+          'Server atau layanan AI sedang bermasalah. Silakan coba lagi nanti.',
         );
       }
 
@@ -191,23 +162,59 @@ class ApiServices {
       );
     } on TimeoutException {
       throw Exception(
-        'Waktu koneksi habis. Backend terlalu lama merespons. '
-        'Silakan coba lagi.',
+        'Waktu koneksi habis. Backend terlalu lama merespons. Silakan coba lagi.',
       );
     } on http.ClientException {
       throw Exception(
-        'Tidak dapat terhubung ke backend. '
-        'Periksa koneksi dan pastikan server berjalan.',
+        'Tidak dapat terhubung ke backend. Periksa koneksi dan pastikan server berjalan.',
       );
     } on FormatException {
       throw Exception('Data dari backend tidak dapat dibaca.');
     } catch (e) {
       if (e is Exception) rethrow;
 
-      throw Exception(
-        'Terjadi kesalahan saat mengirim foto. '
-        'Silakan coba lagi.',
-      );
+      throw Exception('Terjadi kesalahan saat mengirim foto. Silakan coba lagi.');
+    }
+  }
+
+  // RIWAYAT DIAGNOSIS (SubTask #72)
+  static Future<List<dynamic>> getHistory() async {
+    final uri = Uri.parse('$baseUrl/api/history/');
+
+    try {
+      final token = await getAccessToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Kamu belum login. Silakan login dulu.');
+      }
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 401) {
+        await logout();
+        throw Exception('Sesi login habis. Silakan login ulang.');
+      }
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['success'] == true) {
+          return decoded['history'] as List<dynamic>;
+        }
+      }
+
+      throw Exception('Gagal mengambil data riwayat.');
+    } on TimeoutException {
+      throw Exception('Waktu koneksi habis. Backend terlalu lama merespons.');
+    } on http.ClientException {
+      throw Exception('Tidak dapat terhubung ke backend.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Terjadi kesalahan saat mengambil riwayat.');
     }
   }
 }

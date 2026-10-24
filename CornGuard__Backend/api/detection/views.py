@@ -57,7 +57,7 @@ def detect_image(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])  # <-- 1. WAJIBKAN JWT AUTH
+@permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def diagnose_image(request):
     """Pipeline hybrid: MobileNet, lalu YOLO hanya jika hasilnya Bulai."""
@@ -93,8 +93,8 @@ def diagnose_image(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # 2. Jika tertebak penyakit lain TAPI confidence ragu-ragu (< 70%)
-    if top_confidence < 0.50:
+    # 2. Jika tertebak penyakit lain TAPI confidence ragu-ragu (< 30%)
+    if top_confidence < 0.30:
         return Response(
             {
                 "success": False,
@@ -103,14 +103,12 @@ def diagnose_image(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # --- BACA USER DARI TOKEN JWT ---
-    # Jika user login via JWT, request.user otomatis terisi object User.
     user_obj = request.user if request.user.is_authenticated else None
 
-    # Simpan ke Database (Cukup 1x Panggil)
+    # Simpan ke Database
     rec = Recommendation.objects.filter(label=result["penyakit"]).first()
     Diagnosis.objects.create(
-        user=user_obj,  # <-- 2. SIMPAN USER KE DATABASE!
+        user=user_obj,
         label=result["penyakit"],
         confidence=result["kepercayaan"],
         scores=result["skor_kelas"],
@@ -119,7 +117,8 @@ def diagnose_image(request):
     )
     result["rekomendasi"] = rec.content if rec else None
 
-    # --- Visualisasi Bounding Box ---
+    # --- Visualisasi Bounding Box & Generate URL ---
+    result["image_url"] = None
     if lokasi_list:
         img_visual = image.copy()
         for item in lokasi_list:
@@ -140,10 +139,35 @@ def diagnose_image(request):
 
         output_dir = os.path.join(settings.BASE_DIR, "media", "hasil_deteksi")
         os.makedirs(output_dir, exist_ok=True)
-        save_path = os.path.join(output_dir, "latest_result.jpg")
+        
+        # Simpan file spesifik user biar nggak ke-overwrite anonim
+        filename = f"result_{user_obj.id if user_obj else 'anon'}.jpg"
+        save_path = os.path.join(output_dir, filename)
         cv2.imwrite(save_path, img_visual)
 
+        # Mengembalikan absolute URL gambar
+        result["image_url"] = request.build_absolute_uri(f"/media/hasil_deteksi/{filename}")
+
     return Response({"success": True, **result})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_history(request):
+    """SubTask #72: Mengambil daftar riwayat diagnosa milik user yang login."""
+    diagnoses = Diagnosis.objects.filter(user=request.user).order_by('-created_at')
+    
+    history_data = []
+    for d in diagnoses:
+        history_data.append({
+            "id": d.id,
+            "label": d.label,
+            "confidence": round(d.confidence * 100 if d.confidence <= 1 else d.confidence, 1),
+            "created_at": d.created_at.strftime("%d %b %Y, %H:%M"),
+            "recommendation": d.recommendation.content if d.recommendation else None,
+        })
+        
+    return Response({"success": True, "history": history_data})
 
 
 @api_view(["GET"])

@@ -72,13 +72,61 @@ class _ResultScreenState extends State<ResultScreen> {
     return confidence.clamp(0, 100).toDouble();
   }
 
-  // Mengambil teks rekomendasi utuh tanpa memotongnya jadi "Rekomendasi 1-4"
   String _recommendationText() {
     final value = result?['rekomendasi'];
     if (value is String && value.trim().isNotEmpty) {
       return value.trim();
     }
     return 'Belum ada rekomendasi penanganan khusus untuk hasil ini.';
+  }
+
+  // Helper untuk memilih gambar Bounding Box (Network) atau Foto Mentah (Memory)
+  Widget _buildSampleImage() {
+    final String? processedImageUrl = result?['image_url']?.toString();
+
+    if (processedImageUrl != null && processedImageUrl.isNotEmpty) {
+      return Image.network(
+        processedImageUrl,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildLocalImage();
+        },
+      );
+    }
+
+    return _buildLocalImage();
+  }
+
+  Widget _buildLocalImage() {
+    return FutureBuilder<Uint8List>(
+      future: widget.image.readAsBytes(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(40.0),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: ResultScreen.green,
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Center(
+              child: Text('Foto tidak dapat ditampilkan.'),
+            ),
+          );
+        }
+
+        return Image.memory(
+          snapshot.data!,
+          fit: BoxFit.contain,
+        );
+      },
+    );
   }
 
   @override
@@ -135,7 +183,7 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 20),
 
-            // CARD FOTO SAMPEL (SUDAH DIPERBAIKI SUPAYA TIDAK GEPENG)
+            // CARD FOTO SAMPEL
             _card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,37 +195,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     child: Container(
                       width: double.infinity,
                       color: const Color(0xFFE7EBDD),
-                      child: FutureBuilder<Uint8List>(
-                        future: widget.image.readAsBytes(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Padding(
-                              padding: EdgeInsets.all(40.0),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: ResultScreen.green,
-                                ),
-                              ),
-                            );
-                          }
-
-                          if (snapshot.hasError || !snapshot.hasData) {
-                            return const Padding(
-                              padding: EdgeInsets.all(20.0),
-                              child: Center(
-                                child: Text('Foto tidak dapat ditampilkan.'),
-                              ),
-                            );
-                          }
-
-                          // FIT CONTAIN AGAR GAMBAR PROPORSIONAL LENGKAP
-                          return Image.memory(
-                            snapshot.data!,
-                            fit: BoxFit.contain,
-                          );
-                        },
-                      ),
+                      child: _buildSampleImage(),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -321,7 +339,7 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 12),
 
-            // CARD REKOMENDASI UTUH (TIDAK DIPISAH 'REKOMENDASI 1-4')
+            // CARD REKOMENDASI UTUH
             _card(
               child: Text(
                 isLoading
