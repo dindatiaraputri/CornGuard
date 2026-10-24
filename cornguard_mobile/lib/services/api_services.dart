@@ -24,6 +24,11 @@ class ApiServices {
     return prefs.getString(_accessKey);
   }
 
+  static Future<String> getSavedUsername() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('logged_username') ?? 'Pengguna';
+}
+
   static Future<bool> isLoggedIn() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
@@ -53,6 +58,8 @@ class ApiServices {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_accessKey, data['access'] as String);
         await prefs.setString(_refreshKey, data['refresh'] as String);
+//   Simpan username ke memori HP
+        await prefs.setString('logged_username', username);
         return;
       }
 

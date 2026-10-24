@@ -27,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         if (historyList.isNotEmpty) {
-          // Mengambil item indeks 0 (terbaru dari backend)
           _latestDiagnosis = historyList.first as Map<String, dynamic>;
         }
         _loadingDiagnosis = false;
@@ -37,6 +36,57 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _loadingDiagnosis = false);
     }
   }
+
+void _showProfileDialog(BuildContext context) async {
+  // Ambil username yang sedang login
+  final currentUsername = await ApiServices.getSavedUsername();
+  if (!context.mounted) return;
+
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.account_circle, color: Color(0xFF0F7A4D), size: 28),
+          SizedBox(width: 10),
+          Text('Profil Pengguna', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Nama Pengguna', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(
+            currentUsername, // <-- SUDAH DINAMIS SESUAI USER YANG LOGIN!
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          const Text('Peran / Role', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const Text('Pengguna Terverifikasi', style: TextStyle(fontSize: 14)),
+          const SizedBox(height: 12),
+          const Text('Status Akses', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6F4EA),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text('JWT Authenticated', style: TextStyle(color: Color(0xFF0F7A4D), fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Tutup', style: TextStyle(color: Color(0xFF0F7A4D))),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -85,11 +135,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        // Avatar + Menu Logout
+                        
+                        // Avatar + Menu Profil & Logout
                         PopupMenuButton<String>(
                           tooltip: 'Menu akun',
                           onSelected: (value) async {
-                            if (value == 'logout') {
+                            if (value == 'profile') {
+                              _showProfileDialog(context);
+                            } else if (value == 'logout') {
                               await ApiServices.logout();
                               if (!context.mounted) return;
                               Navigator.pushNamedAndRemoveUntil(
@@ -99,14 +152,41 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             }
                           },
-                          itemBuilder: (context) => const [
+                          itemBuilder: (context) => [
                             PopupMenuItem<String>(
+                              enabled: false,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    'Petani Jagung',
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                  ),
+                                  Text(
+                                    'petani1@cornguard.id',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                  Divider(),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'profile',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.person_outline, color: Color(0xFF0F7A4D), size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Profil Saya'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
                               value: 'logout',
                               child: Row(
                                 children: [
                                   Icon(Icons.logout, color: Colors.red, size: 20),
                                   SizedBox(width: 8),
-                                  Text('Keluar'),
+                                  Text('Keluar', style: TextStyle(color: Colors.red)),
                                 ],
                               ),
                             ),
@@ -155,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Section Diagnosis Terakhir (DINAMIS SINKRON DENGAN BACKEND)
+                    // Section Diagnosis Terakhir
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -171,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // CARD DENGAN DATA DINAMIS
+                    // Card Diagnosa Terakhir dari Backend
                     _buildLatestDiagnosisCard(),
 
                     const SizedBox(height: 20),
@@ -303,13 +383,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               color: const Color(0xFFE6F4EA),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(info.icon, color: info.color, size: 30),
+            child: Icon(info.icon, color: info.color, size: 28),
           ),
           const SizedBox(width: 14),
           Expanded(
