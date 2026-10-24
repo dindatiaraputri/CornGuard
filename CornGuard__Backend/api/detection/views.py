@@ -1,11 +1,12 @@
 import logging
 import os
+import time
 import cv2
 import numpy as np
 from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -60,95 +61,125 @@ def detect_image(request):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def diagnose_image(request):
-    """Pipeline hybrid: MobileNet, lalu YOLO hanya jika hasilnya Bulai."""
-    image, error = _read_image(request)
-    if error:
-        return error
+    """Pipeline hybrid dengan penanganan visualisasi bounding box yang aman dan filter top_confidence."""
+    uploaded = request.FILES.get("image")
+    if not uploaded:
+        return Response(
+            {"success": False, "message": "Field gambar wajib diisi dengan nama 'image'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if uploaded.size > MAX_IMAGE_BYTES:
+        return Response(
+            {"success": False, "message": "Ukuran gambar maksimal 10 MB."},
+            status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+
     try:
-        result = get_pipeline().predict(image)
+        # 1. Baca buffer gambar sekali di awal untuk OpenCV
+        uploaded.seek(0)
+        file_bytes = np.frombuffer(uploaded.read(), dtype=np.uint8)
+        img_opencv = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if img_opencv is None:
+            return Response(
+                {"success": False, "message": "File bukan gambar yang valid."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 2. Re-seek ke awal untuk diproses AI Pipeline
+        uploaded.seek(0)
+        result = get_pipeline().predict(img_opencv)
+
     except PipelineNotReady as exc:
         return Response(
             {"success": False, "message": str(exc)},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-    except Exception:
+    except Exception as e:
         log.exception("Pipeline diagnosis gagal")
         return Response(
-            {"success": False, "message": "Terjadi kesalahan saat menjalankan diagnosis."},
+            {"success": False, "message": f"Terjadi kesalahan AI: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # --- Validasi Anomali Untuk Semua Jenis Penyakit ---
     top_confidence = result.get("kepercayaan", 0)
     lokasi_list = result.get("lokasi", [])
-    penyakit = result.get("penyakit")
+    penyakit = result.get("penyakit", "Unknown")
 
-    # 1. Jika tertebak Bulai TAPI YOLO tidak menemukan objek sama sekali -> Tolak
-    if penyakit == "Bulai" and not lokasi_list:
+    # --- FILTER SATPAM TOP CONFIDENCE (BATAS 20%) ---
+    if top_confidence < 0.20:
         return Response(
             {
                 "success": False,
-                "message": "Gejala tidak terdeteksi dengan jelas. Harap ambil foto daun jagung dari jarak dekat."
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # 2. Jika tertebak penyakit lain TAPI confidence ragu-ragu (< 30%)
-    if top_confidence < 0.30:
-        return Response(
-            {
-                "success": False,
-                "message": "Gambar tidak terdeteksi sebagai daun jagung yang valid. Mohon pastikan pencahayaan cukup dan foto fokus pada daun."
+                "message": "Gejala tidak terdeteksi dengan jelas. Mohon ambil foto daun jagung lebih dekat dan pastikan pencahayaan cukup."
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     user_obj = request.user if request.user.is_authenticated else None
 
-    # Simpan ke Database
-    rec = Recommendation.objects.filter(label=result["penyakit"]).first()
-    Diagnosis.objects.create(
+    # 3. Simpan ke Database (Hanya jika lolos filter top_confidence)
+    rec = Recommendation.objects.filter(label=penyakit).first()
+    diagnosis_obj = Diagnosis.objects.create(
         user=user_obj,
-        label=result["penyakit"],
-        confidence=result["kepercayaan"],
-        scores=result["skor_kelas"],
+        label=penyakit,
+        confidence=top_confidence,
+        scores=result.get("skor_kelas", {}),
         detections=lokasi_list,
         recommendation=rec,
     )
-    result["rekomendasi"] = rec.content if rec else None
 
-    # --- Visualisasi Bounding Box & Generate URL ---
-    result["image_url"] = None
+    # 4. Format data respon dasar
+    response_data = {
+        "success": True,
+        "id": diagnosis_obj.id,
+        "penyakit": penyakit,
+        "kepercayaan": top_confidence,
+        "rekomendasi": rec.content if rec else None,
+        "lokasi": lokasi_list,
+        "image_url": None,
+    }
+
+    # 5. Visualisasi Bounding Box (Jika lokasi ditemukan oleh YOLO)
     if lokasi_list:
-        img_visual = image.copy()
-        for item in lokasi_list:
-            x1, y1 = int(item.get("x1", 0)), int(item.get("y1", 0))
-            x2, y2 = int(item.get("x2", 0)), int(item.get("y2", 0))
-            conf = item.get("confidence", 0)
+        try:
+            img_visual = img_opencv.copy()
+            for item in lokasi_list:
+                if isinstance(item, dict):
+                    x1 = int(item.get("x1", item.get("box", [0, 0, 0, 0])[0]))
+                    y1 = int(item.get("y1", item.get("box", [0, 0, 0, 0])[1]))
+                    x2 = int(item.get("x2", item.get("box", [0, 0, 0, 0])[2]))
+                    y2 = int(item.get("y2", item.get("box", [0, 0, 0, 0])[3]))
+                    conf = item.get("confidence", item.get("conf", 0))
 
-            cv2.rectangle(img_visual, (x1, y1), (x2, y2), (0, 0, 255), 3)
-            cv2.putText(
-                img_visual,
-                f"Bulai {conf}",
-                (x1, max(y1 - 10, 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 0, 255),
-                2,
-            )
+                    cv2.rectangle(img_visual, (x1, y1), (x2, y2), (0, 0, 255), 4)
+                    label_text = f"{penyakit} {float(conf):.2f}"
+                    
+                    (text_w, text_h), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                    cv2.rectangle(img_visual, (x1, max(y1 - 25, 0)), (x1 + text_w, max(y1, 25)), (0, 0, 255), -1)
+                    cv2.putText(
+                        img_visual,
+                        label_text,
+                        (x1, max(y1 - 5, 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (255, 255, 255),
+                        2,
+                    )
 
-        output_dir = os.path.join(settings.BASE_DIR, "media", "hasil_deteksi")
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Simpan file spesifik user biar nggak ke-overwrite anonim
-        filename = f"result_{user_obj.id if user_obj else 'anon'}.jpg"
-        save_path = os.path.join(output_dir, filename)
-        cv2.imwrite(save_path, img_visual)
+            output_dir = os.path.join(settings.BASE_DIR, "media", "hasil_deteksi")
+            os.makedirs(output_dir, exist_ok=True)
 
-        # Mengembalikan absolute URL gambar
-        result["image_url"] = request.build_absolute_uri(f"/media/hasil_deteksi/{filename}")
+            filename = f"result_{user_obj.id if user_obj else 'anon'}_{int(time.time())}.jpg"
+            save_path = os.path.join(output_dir, filename)
+            cv2.imwrite(save_path, img_visual)
 
-    return Response({"success": True, **result})
+            response_data["image_url"] = request.build_absolute_uri(f"/media/hasil_deteksi/{filename}")
+        except Exception as e:
+            log.exception(f"Gagal menggambar bounding box: {e}")
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
