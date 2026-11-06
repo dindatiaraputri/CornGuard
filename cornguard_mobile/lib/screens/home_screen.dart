@@ -86,10 +86,99 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _logout(BuildContext context) async {
+    await ApiServices.logout();
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
+  Widget _statRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Ringkasan dari riwayat diagnosis akun yang sedang login.
+  Widget _statsSection(Future<List<dynamic>> future) {
+    return FutureBuilder<List<dynamic>>(
+      future: future,
+      builder: (context, snap) {
+        const pad = EdgeInsets.only(top: 16);
+        if (snap.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: pad,
+            child: Center(
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          );
+        }
+        if (snap.hasError || snap.data == null) {
+          return const Padding(
+            padding: pad,
+            child: Text('Ringkasan tidak dapat dimuat.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          );
+        }
+        final items = snap.data!
+            .map((e) => HistoryEntry.fromHistory(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        if (items.isEmpty) {
+          return const Padding(
+            padding: pad,
+            child: Text('Belum ada diagnosis.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          );
+        }
+
+        final sehat = items.where((e) => e.disease.toLowerCase() == 'healthy').length;
+        final counts = <String, int>{};
+        for (final e in items) {
+          if (e.disease.toLowerCase() == 'healthy') continue;
+          counts[e.disease] = (counts[e.disease] ?? 0) + 1;
+        }
+        String? paling;
+        if (counts.isNotEmpty) {
+          paling = counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+        }
+        final terakhir = items.map((e) => e.createdAt).reduce((a, b) => b.isAfter(a) ? b : a);
+
+        return Padding(
+          padding: pad,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Divider(height: 1),
+              _statRow('Total diagnosis', '${items.length}'),
+              _statRow('Daun sehat', '$sehat'),
+              _statRow('Daun terindikasi penyakit', '${items.length - sehat}'),
+              if (paling != null) _statRow('Penyakit tersering', DiseaseInfo.of(paling).name),
+              _statRow('Pemeriksaan terakhir', formatTanggalJam(terakhir)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showProfileDialog(BuildContext context) {
+    final statsFuture = ApiServices.getHistory();
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
+      builder: (ctx) => Theme(
+        data: _fontTheme(context),
+        child: StatefulBuilder(
         builder: (ctx, setDialog) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Profil Pengguna', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -138,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text('Email', style: TextStyle(fontSize: 11, color: Colors.grey)),
                 Text(_email!, style: const TextStyle(fontSize: 14)),
               ],
+              _statsSection(statsFuture),
             ],
           ),
           actions: [
@@ -147,12 +237,29 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        ),
       ),
+    );
+  }
+
+  /// Tema dengan font bergaya Helvetica (Inter, dibundel di assets/fonts) khusus halaman Beranda.
+  ThemeData _fontTheme(BuildContext context) {
+    final base = Theme.of(context);
+    return base.copyWith(
+      textTheme: base.textTheme.apply(fontFamily: 'Inter'),
+      primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Inter'),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    return Theme(
+      data: _fontTheme(context),
+      child: Builder(builder: _buildBody),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F0),
       body: SafeArea(
@@ -206,13 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (value == 'profile') {
                               _showProfileDialog(context);
                             } else if (value == 'logout') {
-                              await ApiServices.logout();
-                              if (!context.mounted) return;
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                '/login',
-                                (route) => false,
-                              );
+                              await _logout(context);
                             }
                           },
                           itemBuilder: (context) => [
