@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -29,6 +30,33 @@ class ApiServices {
   return prefs.getString('logged_username') ?? 'Pengguna';
 }
 
+  /// Email hanya diketahui jika user mendaftar lewat aplikasi (login JWT tidak mengirim email).
+  static Future<String?> getSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('logged_email');
+  }
+
+  // FOTO PROFIL (disimpan lokal di perangkat, satu foto per username)
+  static Future<Uint8List?> getProfilePhoto(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('profile_photo_$username');
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> setProfilePhoto(String username, Uint8List? bytes) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (bytes == null) {
+      await prefs.remove('profile_photo_$username');
+    } else {
+      await prefs.setString('profile_photo_$username', base64Encode(bytes));
+    }
+  }
+
   static Future<bool> isLoggedIn() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
@@ -38,6 +66,8 @@ class ApiServices {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_accessKey);
     await prefs.remove(_refreshKey);
+    await prefs.remove('logged_username');
+    await prefs.remove('logged_email');
   }
 
   // LOGIN (JWT)
@@ -60,6 +90,7 @@ class ApiServices {
         await prefs.setString(_refreshKey, data['refresh'] as String);
 //   Simpan username ke memori HP
         await prefs.setString('logged_username', username);
+        await prefs.remove('logged_email'); // email lama (user sebelumnya) dibuang
         return;
       }
 
@@ -68,6 +99,64 @@ class ApiServices {
       }
 
       throw Exception('Login gagal (${response.statusCode}).');
+    } on TimeoutException {
+      throw Exception('Waktu koneksi habis. Pastikan server berjalan.');
+    } on http.ClientException {
+      throw Exception(
+        'Tidak dapat terhubung ke backend. Periksa koneksi dan pastikan server berjalan.',
+      );
+    }
+  }
+
+  // REGISTER
+  // Asumsi endpoint: POST /api/auth/register/ (sesuaikan dengan backend).
+  // Setelah berhasil, langsung login agar token & username tersimpan.
+  static Future<void> register({
+    required String username,
+    required String email,
+    required String password,
+    required String passwordConfirm,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/auth/register/');
+
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': username,
+              'email': email,
+              'password': password,
+              'password2': passwordConfirm,
+              'password_confirm': passwordConfirm,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await login(username, password);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_email', email);
+        return;
+      }
+
+      String? message;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          message = (decoded['message'] ?? decoded['detail'])?.toString();
+          if (message == null && decoded.isNotEmpty) {
+            final first = decoded.values.first;
+            message = first is List && first.isNotEmpty ? first.first.toString() : first.toString();
+          }
+        }
+      } catch (_) {}
+
+      if (response.statusCode == 400) {
+        throw Exception(message ?? 'Data pendaftaran tidak valid.');
+      }
+      throw Exception(message ?? 'Pendaftaran gagal (${response.statusCode}).');
     } on TimeoutException {
       throw Exception('Waktu koneksi habis. Pastikan server berjalan.');
     } on http.ClientException {

@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:cornguard_mobile/models/disease_info.dart';
+import 'package:cornguard_mobile/models/history_entry.dart';
 import 'package:cornguard_mobile/services/api_services.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,9 +17,54 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _latestDiagnosis;
   bool _loadingDiagnosis = true;
 
+  String _username = 'Pengguna';
+  String? _email;
+  Uint8List? _photo;
+
+  String get _initials {
+    final n = _username.trim();
+    if (n.isEmpty) return '?';
+    return n.substring(0, n.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  Future<void> _loadProfile() async {
+    final name = await ApiServices.getSavedUsername();
+    final email = await ApiServices.getSavedEmail();
+    final photo = await ApiServices.getProfilePhoto(name);
+    if (!mounted) return;
+    setState(() {
+      _username = name;
+      _email = email;
+      _photo = photo;
+    });
+  }
+
+  Future<void> _pickPhoto(void Function(void Function()) setDialog) async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 400,
+      maxHeight: 400,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    await ApiServices.setProfilePhoto(_username, bytes);
+    if (!mounted) return;
+    setState(() => _photo = bytes);
+    setDialog(() {});
+  }
+
+  Future<void> _removePhoto(void Function(void Function()) setDialog) async {
+    await ApiServices.setProfilePhoto(_username, null);
+    if (!mounted) return;
+    setState(() => _photo = null);
+    setDialog(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadProfile();
     _fetchLatestDiagnosis();
   }
 
@@ -37,56 +86,70 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-void _showProfileDialog(BuildContext context) async {
-  // Ambil username yang sedang login
-  final currentUsername = await ApiServices.getSavedUsername();
-  if (!context.mounted) return;
-
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Row(
-        children: [
-          Icon(Icons.account_circle, color: Color(0xFF0F7A4D), size: 28),
-          SizedBox(width: 10),
-          Text('Profil Pengguna', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Nama Pengguna', style: TextStyle(fontSize: 11, color: Colors.grey)),
-          Text(
-            currentUsername, // <-- SUDAH DINAMIS SESUAI USER YANG LOGIN!
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+  void _showProfileDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Profil Pengguna', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 44,
+                      backgroundColor: const Color(0xFFE2E8F0),
+                      backgroundImage: _photo != null ? MemoryImage(_photo!) : null,
+                      child: _photo == null
+                          ? Text(_initials, style: const TextStyle(fontSize: 28, color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold))
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: InkWell(
+                        onTap: () => _pickPhoto(setDialog),
+                        child: const CircleAvatar(
+                          radius: 15,
+                          backgroundColor: Color(0xFF0F7A4D),
+                          child: Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_photo != null)
+                Center(
+                  child: TextButton(
+                    onPressed: () => _removePhoto(setDialog),
+                    child: const Text('Hapus foto', style: TextStyle(color: Colors.red, fontSize: 12)),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              const Text('Nama Pengguna', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(_username, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              if (_email != null) ...[
+                const SizedBox(height: 12),
+                const Text('Email', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(_email!, style: const TextStyle(fontSize: 14)),
+              ],
+            ],
           ),
-          const SizedBox(height: 12),
-          const Text('Peran / Role', style: TextStyle(fontSize: 11, color: Colors.grey)),
-          const Text('Pengguna Terverifikasi', style: TextStyle(fontSize: 14)),
-          const SizedBox(height: 12),
-          const Text('Status Akses', style: TextStyle(fontSize: 11, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6F4EA),
-              borderRadius: BorderRadius.circular(8),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tutup', style: TextStyle(color: Color(0xFF0F7A4D))),
             ),
-            child: const Text('JWT Authenticated', style: TextStyle(color: Color(0xFF0F7A4D), fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Tutup', style: TextStyle(color: Color(0xFF0F7A4D))),
+          ],
         ),
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,15 +220,16 @@ void _showProfileDialog(BuildContext context) async {
                               enabled: false,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
+                                children: [
                                   Text(
-                                    'Petani Jagung',
+                                    _username,
                                     style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                                   ),
-                                  Text(
-                                    'petani1@cornguard.id',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                                  ),
+                                  if (_email != null)
+                                    Text(
+                                      _email!,
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
                                   Divider(),
                                 ],
                               ),
@@ -191,9 +255,12 @@ void _showProfileDialog(BuildContext context) async {
                               ),
                             ),
                           ],
-                          child: const CircleAvatar(
-                            backgroundColor: Color(0xFFE2E8F0),
-                            child: Text('BP', style: TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold)),
+                          child: CircleAvatar(
+                            backgroundColor: const Color(0xFFE2E8F0),
+                            backgroundImage: _photo != null ? MemoryImage(_photo!) : null,
+                            child: _photo == null
+                                ? Text(_initials, style: const TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold))
+                                : null,
                           ),
                         ),
                       ],
@@ -362,16 +429,10 @@ void _showProfileDialog(BuildContext context) async {
       );
     }
 
-    final String label = _latestDiagnosis!['label']?.toString() ?? 'Unknown';
-    final info = DiseaseInfo.of(label);
-    
-    double confidence = 0.0;
-    if (_latestDiagnosis!['confidence'] is num) {
-      confidence = (_latestDiagnosis!['confidence'] as num).toDouble();
-      if (confidence <= 1) confidence *= 100;
-    }
-
-    final String dateStr = _latestDiagnosis!['created_at']?.toString() ?? '-';
+    final entry = HistoryEntry.fromHistory(_latestDiagnosis!);
+    final info = DiseaseInfo.of(entry.disease);
+    final double confidence = entry.confidence * 100;
+    final String dateStr = formatTanggalJam(entry.createdAt);
 
     return Container(
       padding: const EdgeInsets.all(12),

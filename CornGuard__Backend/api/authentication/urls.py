@@ -17,3 +17,10 @@ from django.conf.urls.static import static
 # Di paling bawah urlpatterns utama:
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+from django.urls import path
+from .views import RegisterView
+
+urlpatterns = [
+    path('register/', RegisterView.as_view(), name='register'),
+]

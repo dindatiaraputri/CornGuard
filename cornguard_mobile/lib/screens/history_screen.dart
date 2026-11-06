@@ -51,30 +51,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final rawList = await ApiServices.getHistory();
       if (!mounted) return;
 
-      final items = rawList.map((item) {
-        final map = item as Map<String, dynamic>;
-        
-        // Parse tanggal dari string "24 Oct 2026, 23:54" atau ISO format
-        DateTime parsedDate = DateTime.now();
-        if (map['created_at'] != null) {
-          parsedDate = DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now();
-        }
-
-        // Hitung confidence (0.0 - 1.0)
-        double conf = 0.0;
-        if (map['confidence'] is num) {
-          conf = (map['confidence'] as num).toDouble();
-          if (conf > 1) conf = conf / 100;
-        }
-
-        return HistoryEntry(
-          id: map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-          disease: map['label']?.toString() ?? 'Unknown',
-          confidence: conf,
-          scores: {}, // Skor kelas jika dikirim dari backend
-          createdAt: parsedDate,
-        );
-      }).toList();
+      final items = rawList
+          .map((item) => HistoryEntry.fromHistory(Map<String, dynamic>.from(item as Map)))
+          .toList();
 
       setState(() {
         _all = items;

@@ -38,7 +38,6 @@ def _read_image(request):
         return fail("File bukan gambar yang valid.", status.HTTP_400_BAD_REQUEST)
     return image, None
 
-
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
 def detect_image(request):
@@ -108,7 +107,7 @@ def diagnose_image(request):
     penyakit = result.get("penyakit", "Unknown")
 
     # --- FILTER SATPAM TOP CONFIDENCE (BATAS 20%) ---
-    if top_confidence < 0.20:
+    if top_confidence < 0.25:
         return Response(
             {
                 "success": False,
@@ -199,7 +198,6 @@ def get_user_history(request):
         })
         
     return Response({"success": True, "history": history_data})
-
 
 @api_view(["GET"])
 def health(request):

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cornguard_mobile/screens/register_screen.dart';
 import 'package:cornguard_mobile/services/api_services.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -121,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 36),
 
-                  // Kartu login
+                  // Kartu Login
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -161,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Informasi aplikasi
+                        // Banner Informasi
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -206,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Input username & password
+                        // Form Input Username & Password
                         TextField(
                           controller: _usernameController,
                           decoration: InputDecoration(
@@ -246,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Tombol masuk: login ke backend dulu
+                        // Tombol Masuk
                         SizedBox(
                           height: 54,
                           child: ElevatedButton.icon(
@@ -281,6 +282,40 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Link Navigasi Ke Register Screen
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Belum punya akun? ',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 14,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const RegisterScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Daftar',
+                                style: TextStyle(
+                                  color: primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

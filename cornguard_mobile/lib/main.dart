@@ -1,26 +1,34 @@
-// main.dart sederhana
 import 'package:flutter/material.dart';
 import 'package:cornguard_mobile/screens/login_screen.dart';
+import 'package:cornguard_mobile/screens/register_screen.dart';
 import 'package:cornguard_mobile/screens/home_screen.dart';
 import 'package:cornguard_mobile/screens/camera_screen.dart';
 import 'package:cornguard_mobile/screens/history_screen.dart';
-void main() {
-  runApp(const CornGuardApp());
+import 'package:cornguard_mobile/services/api_services.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Cek apakah token JWT tersimpan di SharedPreferences
+  final bool loggedIn = await ApiServices.isLoggedIn();
+
+  runApp(MyApp(isLoggedIn: loggedIn));
 }
 
-class CornGuardApp extends StatelessWidget {
-  const CornGuardApp({super.key});
+class MyApp extends StatelessWidget {
+  final bool isLoggedIn;
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'CornGuard',
-      theme: ThemeData(primarySwatch: Colors.green),
-      // Halaman pertama yang muncul saat aplikasi dibuka
-      initialRoute: '/login',
-      // Daftar alamat/pintu ke halaman lain
+      // Jika token ada langsung ke Home, jika tidak ada ke Login
+      home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
         '/camera': (context) => const CameraScreen(),
         '/history': (context) => const HistoryScreen(),
