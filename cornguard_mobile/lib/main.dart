@@ -5,6 +5,7 @@ import 'package:cornguard_mobile/screens/home_screen.dart';
 import 'package:cornguard_mobile/screens/camera_screen.dart';
 import 'package:cornguard_mobile/screens/history_screen.dart';
 import 'package:cornguard_mobile/services/api_services.dart';
+import 'package:cornguard_mobile/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,8 +25,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CornGuard',
-      // Font Inter dipakai global di semua halaman (didaftarkan di pubspec.yaml)
-      theme: ThemeData(fontFamily: 'Inter'),
+      // Tema global: font Inter, huruf besar & tebal, tombol besar
+      theme: AppTheme.light,
+      // Hormati ukuran font sistem, tapi batasi agar layout tidak pecah
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 1.0,
+        maxScaleFactor: 1.3,
+        child: child!,
+      ),
       // Jika token ada langsung ke Home, jika tidak ada ke Login
       home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
       routes: {

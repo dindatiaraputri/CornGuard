@@ -164,7 +164,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Text(
               _errorMessage ?? 'Terjadi kesalahan saat mengambil data dari server.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: _text2, fontSize: 13),
+              style: const TextStyle(color: _text2, fontSize: 15),
             ),
             const SizedBox(height: 18),
             FilledButton.icon(
@@ -295,7 +295,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   children: [
                     Text(
                       formatTanggalJam(e.createdAt),
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -317,7 +317,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         'Kepercayaan: ${formatPersen(e.confidence)}',
                         style: const TextStyle(
                           color: _primary,
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -415,7 +415,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 8),
               Text(
                 'Waktu: ${formatTanggalJam(e.createdAt)}  |  Tingkat Keyakinan: ${formatPersen(e.confidence)}',
-                style: const TextStyle(color: _text2, fontSize: 12),
+                style: const TextStyle(color: _text2, fontSize: 14),
               ),
               const SizedBox(height: 20),
               SizedBox(

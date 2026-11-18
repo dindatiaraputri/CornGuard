@@ -131,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     'Bergabung dengan CornGuard untuk pantau kesehatan tanaman.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 15,
                       color: Color(0xFF718071),
                     ),
                   ),
@@ -215,7 +215,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             _errorMessage!,
                             style: const TextStyle(
                               color: Colors.red,
-                              fontSize: 13,
+                              fontSize: 15,
                             ),
                           ),
                         ],
@@ -266,7 +266,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           children: [
                             const Text(
                               'Sudah punya akun? ',
-                              style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                              style: TextStyle(color: Color(0xFF64748B), fontSize: 16),
                             ),
                             GestureDetector(
                               onTap: () => Navigator.pop(context),
@@ -275,7 +275,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: TextStyle(
                                   color: primaryGreen,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 16,
                                 ),
                               ),
                             ),

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cornguard_mobile/models/disease_info.dart';
 import 'package:cornguard_mobile/models/history_entry.dart';
 import 'package:cornguard_mobile/services/api_services.dart';
+import 'package:cornguard_mobile/theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -82,6 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (_) {
       if (!mounted) return;
+      // Sesi berakhir (refresh token ditolak) -> kembali ke halaman login.
+      if (!await ApiServices.isLoggedIn()) {
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        return;
+      }
       setState(() => _loadingDiagnosis = false);
     }
   }
@@ -98,13 +105,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(label, style: const TextStyle(fontSize: 14, color: AppColors.inkSoft)),
           const SizedBox(width: 16),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
             ),
           ),
         ],
@@ -129,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (snap.hasError || snap.data == null) {
           return const Padding(
             padding: pad,
-            child: Text('Ringkasan tidak dapat dimuat.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('Ringkasan tidak dapat dimuat.', style: TextStyle(fontSize: 14, color: AppColors.inkSoft)),
           );
         }
         final items = snap.data!
@@ -138,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (items.isEmpty) {
           return const Padding(
             padding: pad,
-            child: Text('Belum ada diagnosis.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text('Belum ada diagnosis.', style: TextStyle(fontSize: 14, color: AppColors.inkSoft)),
           );
         }
 
@@ -181,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: StatefulBuilder(
         builder: (ctx, setDialog) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Profil Pengguna', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          title: const Text('Profil Pengguna', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,16 +223,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () => _removePhoto(setDialog),
-                    child: const Text('Hapus foto', style: TextStyle(color: Colors.red, fontSize: 12)),
+                    child: const Text('Hapus foto', style: TextStyle(color: Colors.red, fontSize: 14)),
                   ),
                 ),
               const SizedBox(height: 12),
-              const Text('Nama Pengguna', style: TextStyle(fontSize: 11, color: Colors.grey)),
-              Text(_username, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text('Nama Pengguna', style: TextStyle(fontSize: 13, color: AppColors.inkSoft)),
+              Text(_username, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
               if (_email != null) ...[
                 const SizedBox(height: 12),
-                const Text('Email', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Text(_email!, style: const TextStyle(fontSize: 14)),
+                const Text('Email', style: TextStyle(fontSize: 13, color: AppColors.inkSoft)),
+                Text(_email!, style: const TextStyle(fontSize: 16)),
               ],
               _statsSection(statsFuture),
             ],
@@ -242,290 +249,302 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Tema dengan font bergaya Helvetica (Inter, dibundel di assets/fonts) khusus halaman Beranda.
-  ThemeData _fontTheme(BuildContext context) {
-    final base = Theme.of(context);
-    return base.copyWith(
-      textTheme: base.textTheme.apply(fontFamily: 'Inter'),
-      primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Inter'),
-    );
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 11) return 'Selamat pagi';
+    if (h < 15) return 'Selamat siang';
+    if (h < 18) return 'Selamat sore';
+    return 'Selamat malam';
   }
+
+  void _openCamera() =>
+      Navigator.pushNamed(context, '/camera').then((_) => _fetchLatestDiagnosis());
+
+  void _openHistory() =>
+      Navigator.pushNamed(context, '/history').then((_) => _fetchLatestDiagnosis());
+
+  /// Tema global sudah memakai font Inter (lihat AppTheme), jadi cukup pakai tema yang ada.
+  ThemeData _fontTheme(BuildContext context) => Theme.of(context);
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: _fontTheme(context),
-      child: Builder(builder: _buildBody),
-    );
-  }
-
-  Widget _buildBody(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F0),
+      backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
+        child: RefreshIndicator(
+          color: AppColors.green,
+          onRefresh: _fetchLatestDiagnosis,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 20),
+                _buildHero(),
+                const SizedBox(height: 28),
+                const Text('Cara kerja', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header App Bar
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0F7A4D),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.eco, color: Colors.white, size: 28),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'CornGuard',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E293B),
-                                  ),
-                                ),
-                                Text(
-                                  'AI Crop Disease Detection',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        
-                        // Avatar + Menu Profil & Logout
-                        PopupMenuButton<String>(
-                          tooltip: 'Menu akun',
-                          onSelected: (value) async {
-                            if (value == 'profile') {
-                              _showProfileDialog(context);
-                            } else if (value == 'logout') {
-                              await _logout(context);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem<String>(
-                              enabled: false,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _username,
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                                  ),
-                                  if (_email != null)
-                                    Text(
-                                      _email!,
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                  Divider(),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'profile',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.person_outline, color: Color(0xFF0F7A4D), size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Profil Saya'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'logout',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.logout, color: Colors.red, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Keluar', style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
-                          child: CircleAvatar(
-                            backgroundColor: const Color(0xFFE2E8F0),
-                            backgroundImage: _photo != null ? MemoryImage(_photo!) : null,
-                            child: _photo == null
-                                ? Text(_initials, style: const TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold))
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Banner Card Hero
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF064E3B),
-                        borderRadius: BorderRadius.circular(20),
-                        image: const DecorationImage(
-                          image: AssetImage('assets/images/banner_bg.jpeg'),
-                          fit: BoxFit.cover,
-                          opacity: 0.3,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'TUMBUH SEHAT, PANEN HEBAT',
-                            style: TextStyle(color: Color(0xFFFACC15), fontWeight: FontWeight.bold, fontSize: 11),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Kenali gejalanya.\nJaga panennya.',
-                            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, height: 1.2),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Deteksi dini penyakit daun jagung,\nlangsung dari foto.',
-                            style: TextStyle(color: Colors.white70, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Section Diagnosis Terakhir
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Diagnosis terakhir',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                        ),
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/history'),
-                          child: const Text('Lihat semua', style: TextStyle(color: Color(0xFF0F7A4D), fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Card Diagnosa Terakhir dari Backend
-                    _buildLatestDiagnosisCard(),
-
-                    const SizedBox(height: 20),
-
-                    // Box Tips Foto
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF9C3),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.lightbulb_outline, color: Color(0xFF854D0E)),
-                              SizedBox(width: 8),
-                              Text('Foto tepat, hasil lebih akurat', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF854D0E))),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: const [
-                              _TipItem(icon: Icons.center_focus_strong, label: 'Jarak dekat'),
-                              _TipItem(icon: Icons.wb_sunny_outlined, label: 'Cahaya cukup'),
-                              _TipItem(icon: Icons.crop_free, label: 'Fokus gejala'),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Tombol Utama Diagnosis
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F7A4D),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/camera').then((_) => _fetchLatestDiagnosis());
-                        },
-                        icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
-                        label: const Text('Mulai Diagnosis', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Center(
-                      child: Text('Ambil foto atau unggah dari galeri', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ),
+                    Expanded(child: _StepCard(icon: Icons.photo_camera_outlined, title: 'Foto daun', caption: 'Ambil dari dekat')),
+                    SizedBox(width: 10),
+                    Expanded(child: _StepCard(icon: Icons.auto_awesome, title: 'Analisis AI', caption: 'Hasil dalam detik')),
+                    SizedBox(width: 10),
+                    Expanded(child: _StepCard(icon: Icons.task_alt, title: 'Penanganan', caption: 'Saran perawatan')),
                   ],
                 ),
-              ),
+                const SizedBox(height: 28),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Diagnosis terakhir', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                    TextButton(onPressed: _openHistory, child: const Text('Lihat semua')),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildLatestDiagnosisCard(),
+                const SizedBox(height: 28),
+                const Text('Penyakit yang dikenali', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final d in DiseaseInfo.all)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: d.color.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: d.color.withValues(alpha: 0.35)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(d.icon, size: 20, color: d.color),
+                            const SizedBox(width: 6),
+                            Text(d.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: d.color)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                _buildPhotoTips(),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-
-      // Bottom Navigation Bar
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        onTap: (i) {
-          if (i == 1) Navigator.pushNamed(context, '/camera').then((_) => _fetchLatestDiagnosis());
-          if (i == 2) Navigator.pushNamed(context, '/history').then((_) => _fetchLatestDiagnosis());
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 0,
+        onDestinationSelected: (i) {
+          if (i == 1) _openCamera();
+          if (i == 2) _openHistory();
         },
-        selectedItemColor: const Color(0xFF0F7A4D),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.center_focus_weak), label: 'Diagnosis'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Beranda'),
+          NavigationDestination(icon: Icon(Icons.photo_camera_outlined), selectedIcon: Icon(Icons.photo_camera_rounded), label: 'Diagnosis'),
+          NavigationDestination(icon: Icon(Icons.history_rounded), label: 'Riwayat'),
         ],
       ),
     );
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: AppColors.green, borderRadius: BorderRadius.circular(16)),
+          child: const Icon(Icons.eco, color: Colors.white, size: 28),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_greeting, style: const TextStyle(fontSize: 15, color: AppColors.inkSoft)),
+              Text(
+                _username,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'Menu akun',
+          onSelected: (value) async {
+            if (value == 'profile') {
+              _showProfileDialog(context);
+            } else if (value == 'logout') {
+              await _logout(context);
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem<String>(
+              value: 'profile',
+              height: 52,
+              child: Row(
+                children: [
+                  Icon(Icons.person_outline, color: AppColors.green, size: 24),
+                  SizedBox(width: 10),
+                  Text('Profil Saya'),
+                ],
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'logout',
+              height: 52,
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: Colors.red, size: 24),
+                  SizedBox(width: 10),
+                  Text('Keluar', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+          child: CircleAvatar(
+            radius: 26,
+            backgroundColor: AppColors.greenSoft,
+            backgroundImage: _photo != null ? MemoryImage(_photo!) : null,
+            child: _photo == null
+                ? Text(_initials, style: const TextStyle(fontSize: 18, color: AppColors.green, fontWeight: FontWeight.w800))
+                : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHero() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.greenDark,
+        borderRadius: BorderRadius.circular(28),
+        image: const DecorationImage(
+          image: AssetImage('assets/images/banner_bg.jpeg'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(Color(0xD9064E3B), BlendMode.srcOver),
+        ),
+        boxShadow: const [BoxShadow(color: Color(0x330F7A4D), blurRadius: 24, offset: Offset(0, 10))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'TUMBUH SEHAT, PANEN HEBAT',
+            style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1.2),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Kenali gejalanya.\nJaga panennya.',
+            style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800, height: 1.15),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Foto daun jagung, dapatkan hasil dan cara penanganannya dalam hitungan detik.',
+            style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 16, height: 1.45),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _openCamera,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.gold,
+              foregroundColor: AppColors.greenDark,
+              minimumSize: const Size.fromHeight(62),
+              textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 19, fontWeight: FontWeight.w800),
+            ),
+            icon: const Icon(Icons.photo_camera_rounded, size: 28),
+            label: const Text('Mulai Diagnosis'),
+          ),
+          const SizedBox(height: 10),
+          const Center(
+            child: Text('Bisa dari kamera atau galeri', style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoTips() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF9C3),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.lightbulb_outline, color: Color(0xFF854D0E), size: 26),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Foto tepat, hasil lebih akurat',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF854D0E)),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _TipItem(icon: Icons.center_focus_strong, label: 'Jarak dekat'),
+              _TipItem(icon: Icons.wb_sunny_outlined, label: 'Cahaya cukup'),
+              _TipItem(icon: Icons.crop_free, label: 'Fokus gejala'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration get _cardDecoration => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.line),
+        boxShadow: const [BoxShadow(color: Color(0x0A14201A), blurRadius: 12, offset: Offset(0, 4))],
+      );
+
   Widget _buildLatestDiagnosisCard() {
     if (_loadingDiagnosis) {
       return Container(
-        height: 90,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF0F7A4D)),
-        ),
+        height: 100,
+        decoration: _cardDecoration,
+        child: const Center(child: CircularProgressIndicator(color: AppColors.green)),
       );
     }
 
     if (_latestDiagnosis == null) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: const Text(
-          'Belum ada riwayat diagnosa.',
-          style: TextStyle(color: Colors.grey, fontSize: 13),
+        padding: const EdgeInsets.all(20),
+        decoration: _cardDecoration,
+        child: const Row(
+          children: [
+            Icon(Icons.eco_outlined, size: 36, color: AppColors.green),
+            SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'Belum ada riwayat diagnosis.\nMulai dengan memotret daun jagung.',
+                style: TextStyle(fontSize: 16, height: 1.45, color: AppColors.inkSoft),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -535,47 +554,84 @@ class _HomeScreenState extends State<HomeScreen> {
     final double confidence = entry.confidence * 100;
     final String dateStr = formatTanggalJam(entry.createdAt);
 
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: _openHistory,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: _cardDecoration,
+          child: Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: info.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(info.icon, color: info.color, size: 34),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(dateStr, style: const TextStyle(fontSize: 14, color: AppColors.inkSoft)),
+                    const SizedBox(height: 2),
+                    Text(info.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: info.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Keyakinan ${confidence.toStringAsFixed(1)}%',
+                        style: TextStyle(color: info.color, fontSize: 14, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, size: 30, color: AppColors.inkSoft),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StepCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String caption;
+  const _StepCard({required this.icon, required this.title, required this.caption});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.line),
       ),
-      child: Row(
+      child: Column(
         children: [
           Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6F4EA),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(info.icon, color: info.color, size: 28),
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(color: AppColors.greenSoft, shape: BoxShape.circle),
+            child: Icon(icon, color: AppColors.green, size: 28),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Text(info.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6F4EA),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '✓ Kepercayaan: ${confidence.toStringAsFixed(1)}%',
-                    style: const TextStyle(color: Color(0xFF0F7A4D), fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          )
+          const SizedBox(height: 10),
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(caption, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: AppColors.inkSoft, height: 1.3)),
         ],
       ),
     );
@@ -585,16 +641,15 @@ class _HomeScreenState extends State<HomeScreen> {
 class _TipItem extends StatelessWidget {
   final IconData icon;
   final String label;
-
   const _TipItem({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFF854D0E), size: 20),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF854D0E))),
+        Icon(icon, color: const Color(0xFF854D0E), size: 32),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF854D0E))),
       ],
     );
   }

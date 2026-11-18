@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_services.dart';
+import '../widgets/recommendation_view.dart';
 
 class ResultScreen extends StatefulWidget {
   final XFile image;
@@ -340,20 +341,22 @@ class _ResultScreenState extends State<ResultScreen> {
             const SizedBox(height: 12),
 
             // CARD REKOMENDASI UTUH
-            _card(
-              child: Text(
-                isLoading
-                    ? 'Menunggu hasil diagnosis...'
-                    : errorMessage != null
-                        ? 'Rekomendasi belum tersedia.'
-                        : recommendationText,
-                style: const TextStyle(
-                  color: ResultScreen.brown,
-                  fontSize: 16,
-                  height: 1.7,
+            if (isLoading || errorMessage != null)
+              _card(
+                child: Text(
+                  isLoading ? 'Menunggu hasil diagnosis...' : 'Rekomendasi belum tersedia.',
+                  style: const TextStyle(
+                    color: ResultScreen.brown,
+                    fontSize: 16,
+                    height: 1.7,
+                  ),
                 ),
+              )
+            else
+              RecommendationView(
+                text: recommendationText,
+                isHealthy: (penyakit ?? '').toLowerCase() == 'healthy',
               ),
-            ),
 
             const SizedBox(height: 22),
 

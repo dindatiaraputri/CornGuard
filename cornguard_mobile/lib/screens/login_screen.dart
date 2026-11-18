@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Smart Detection for Healthy Corn',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       color: Color(0xFF718071),
                     ),
                   ),
@@ -154,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Mulai perjalananmu untuk menjaga '
                           'tanaman jagung tetap sehat.',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             height: 1.5,
                             color: Color(0xFF64748B),
                           ),
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Text(
                                       'Kenali penyakit, lindungi panen.',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 14,
                                         color: Color(0xFF52705D),
                                       ),
                                     ),
@@ -240,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _errorMessage!,
                             style: const TextStyle(
                               color: Colors.red,
-                              fontSize: 13,
+                              fontSize: 15,
                             ),
                           ),
                         ],
@@ -294,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Belum punya akun? ',
                               style: TextStyle(
                                 color: Color(0xFF64748B),
-                                fontSize: 14,
+                                fontSize: 16,
                               ),
                             ),
                             GestureDetector(
@@ -311,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextStyle(
                                   color: primaryGreen,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 16,
                                 ),
                               ),
                             ),
@@ -335,7 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'Sahabat Petani Jagung',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           color: Color(0xFF718071),
                         ),
                       ),

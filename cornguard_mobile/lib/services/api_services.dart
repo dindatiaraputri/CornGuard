@@ -57,9 +57,75 @@ class ApiServices {
     }
   }
 
+  /// Dianggap login selama masih ada token tersimpan (access atau refresh).
+  /// Sesi hanya berakhir lewat tombol Keluar, atau jika refresh token ditolak server.
   static Future<bool> isLoggedIn() async {
-    final token = await getAccessToken();
-    return token != null && token.isNotEmpty;
+    final prefs = await SharedPreferences.getInstance();
+    final access = prefs.getString(_accessKey);
+    final refresh = prefs.getString(_refreshKey);
+    return (access != null && access.isNotEmpty) ||
+        (refresh != null && refresh.isNotEmpty);
+  }
+
+  // PERPANJANG SESI OTOMATIS (refresh token)
+  static Future<bool?>? _refreshInFlight;
+
+  /// Tukar refresh token dengan access token baru.
+  /// true  = berhasil, token baru sudah tersimpan
+  /// false = refresh token ditolak/kedaluwarsa (sesi benar-benar berakhir)
+  /// null  = gagal karena jaringan/server (JANGAN logout, coba lagi nanti)
+  static Future<bool?> refreshSession() {
+    return _refreshInFlight ??=
+        _doRefresh().whenComplete(() => _refreshInFlight = null);
+  }
+
+  static Future<bool?> _doRefresh() async {
+    final prefs = await SharedPreferences.getInstance();
+    final refresh = prefs.getString(_refreshKey);
+    if (refresh == null || refresh.isEmpty) return false;
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/auth/token/refresh/'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh': refresh}),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await prefs.setString(_accessKey, data['access'] as String);
+        // Server memutar refresh token (ROTATE_REFRESH_TOKENS), simpan yang baru.
+        if (data['refresh'] is String) {
+          await prefs.setString(_refreshKey, data['refresh'] as String);
+        }
+        return true;
+      }
+      if (response.statusCode == 400 || response.statusCode == 401) {
+        return false;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Dipanggil saat server membalas 401. Mengembalikan access token baru,
+  /// atau melempar Exception bila sesi berakhir / tidak ada koneksi.
+  static Future<String> _renewAfter401() async {
+    final ok = await refreshSession();
+    if (ok == true) {
+      final token = await getAccessToken();
+      if (token != null && token.isNotEmpty) return token;
+    }
+    if (ok == null) {
+      throw Exception(
+        'Tidak dapat terhubung ke backend. Periksa koneksi lalu coba lagi.',
+      );
+    }
+    await logout();
+    throw Exception('Sesi login habis. Silakan login ulang.');
   }
 
   static Future<void> logout() async {
@@ -184,26 +250,32 @@ class ApiServices {
         throw Exception('File foto kosong. Silakan pilih foto lain.');
       }
 
-      final request = http.MultipartRequest('POST', uri);
-      request.headers['Authorization'] = 'Bearer $token';
+      // Request multipart tidak bisa dikirim ulang, jadi dibuat baru tiap percobaan.
+      Future<http.Response> send(String accessToken) async {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers['Authorization'] = 'Bearer $accessToken';
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: imageFile.name,
+          ),
+        );
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 120),
+        );
+        return http.Response.fromStream(streamed);
+      }
 
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'image',
-          bytes,
-          filename: imageFile.name,
-        ),
-      );
-
-      final streamed = await request.send().timeout(
-        const Duration(seconds: 120),
-      );
-
-      final response = await http.Response.fromStream(streamed);
+      var response = await send(token);
 
       if (response.statusCode == 401) {
-        await logout();
-        throw Exception('Sesi login habis. Silakan login ulang.');
+        // Access token habis: perpanjang diam-diam lalu coba sekali lagi.
+        response = await send(await _renewAfter401());
+        if (response.statusCode == 401) {
+          await logout();
+          throw Exception('Sesi login habis. Silakan login ulang.');
+        }
       }
 
       dynamic decoded;
@@ -283,17 +355,23 @@ class ApiServices {
         throw Exception('Kamu belum login. Silakan login dulu.');
       }
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 20));
+      Future<http.Response> fetch(String accessToken) => http.get(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $accessToken',
+            },
+          ).timeout(const Duration(seconds: 20));
+
+      var response = await fetch(token);
 
       if (response.statusCode == 401) {
-        await logout();
-        throw Exception('Sesi login habis. Silakan login ulang.');
+        // Access token habis: perpanjang diam-diam lalu coba sekali lagi.
+        response = await fetch(await _renewAfter401());
+        if (response.statusCode == 401) {
+          await logout();
+          throw Exception('Sesi login habis. Silakan login ulang.');
+        }
       }
 
       if (response.statusCode == 200) {
