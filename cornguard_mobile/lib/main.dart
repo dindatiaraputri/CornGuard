@@ -24,6 +24,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CornGuard',
+      // Font Inter dipakai global di semua halaman (didaftarkan di pubspec.yaml)
+      theme: ThemeData(fontFamily: 'Inter'),
       // Jika token ada langsung ke Home, jika tidak ada ke Login
       home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
       routes: {
