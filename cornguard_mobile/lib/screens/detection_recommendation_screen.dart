@@ -1,4 +1,3 @@
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -204,6 +203,7 @@ class _DetectionRecommendationScreenState
         'Rekomendasi belum tersedia dari backend.',
         style: TextStyle(
           color: brownColor,
+          fontSize: 16,
           height: 1.5,
         ),
       );
@@ -239,6 +239,7 @@ class _DetectionRecommendationScreenState
                   recommendations[index],
                   style: const TextStyle(
                     color: brownColor,
+                    fontSize: 16,
                     height: 1.5,
                   ),
                 ),
@@ -342,6 +343,7 @@ class _DetectionRecommendationScreenState
             information,
             style: const TextStyle(
               color: brownColor,
+              fontSize: 16,
               height: 1.6,
             ),
           ),
@@ -375,7 +377,7 @@ class _DetectionRecommendationScreenState
                   'sebelum menentukan tindakan perawatan.',
                   style: TextStyle(
                     color: brownColor,
-                    fontSize: 13,
+                    fontSize: 15,
                     height: 1.5,
                   ),
                 ),

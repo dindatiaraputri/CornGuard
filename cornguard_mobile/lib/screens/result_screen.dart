@@ -212,7 +212,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         style: TextStyle(
                           color: ResultScreen.green,
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -244,7 +244,7 @@ class _ResultScreenState extends State<ResultScreen> {
                               'Sedang menganalisis daun jagung...',
                               style: TextStyle(
                                 color: ResultScreen.brown,
-                                fontSize: 13,
+                                fontSize: 15,
                               ),
                             ),
                           ],
@@ -349,7 +349,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         : recommendationText,
                 style: const TextStyle(
                   color: ResultScreen.brown,
-                  fontSize: 13,
+                  fontSize: 16,
                   height: 1.7,
                 ),
               ),
@@ -407,7 +407,7 @@ class _Label extends StatelessWidget {
       text,
       style: const TextStyle(
         color: ResultScreen.green,
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.3,
       ),
@@ -438,7 +438,7 @@ class _SectionTitle extends StatelessWidget {
                 eyebrow,
                 style: const TextStyle(
                   color: ResultScreen.green,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),

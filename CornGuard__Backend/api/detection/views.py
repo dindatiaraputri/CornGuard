@@ -4,6 +4,7 @@ import time
 import cv2
 import numpy as np
 from django.conf import settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -193,7 +194,7 @@ def get_user_history(request):
             "id": d.id,
             "label": d.label,
             "confidence": round(d.confidence * 100 if d.confidence <= 1 else d.confidence, 1),
-            "created_at": d.created_at.strftime("%d %b %Y, %H:%M"),
+            "created_at": timezone.localtime(d.created_at).isoformat(),
             "recommendation": d.recommendation.content if d.recommendation else None,
         })
         
