@@ -5,7 +5,8 @@
         "Bulai",
         "Common_Rust",
         "Gray_Leaf_Spot",
-        "Healthy"
+        "Healthy",
+        "Anomali"
     ],
     "preprocess": "none",
     "resize": "stretch"
