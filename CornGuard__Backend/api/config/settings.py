@@ -87,7 +87,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'cornguard_db',
         'USER': 'postgres',
-        'PASSWORD': 'dinda123',
+        'PASSWORD': 'nabhilla123',
         'HOST': 'localhost',
         'PORT': '5432',
     }
