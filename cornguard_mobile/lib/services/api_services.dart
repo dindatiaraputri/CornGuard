@@ -9,11 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiServices {
   static String get baseUrl {
-    if (kIsWeb) return 'http://127.0.0.1:8000';
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000';
-    }
-    return 'http://127.0.0.1:8000';
+    return 'http://103.151.63.86:8001';
   }
 
   static const String _accessKey = 'access_token';
