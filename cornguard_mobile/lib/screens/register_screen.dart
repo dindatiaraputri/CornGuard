@@ -75,12 +75,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 700 ||
+        MediaQuery.textScalerOf(context).scale(1) > 1.15;
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 16 : 24,
+              vertical: compact ? 12 : 24,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
@@ -91,8 +97,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   // Header Logo
                   Center(
                     child: Container(
-                      width: 80,
-                      height: 80,
+                      width: compact ? 64 : 80,
+                      height: compact ? 64 : 80,
                       decoration: BoxDecoration(
                         color: primaryGreen,
                         borderRadius: BorderRadius.circular(24),
@@ -104,10 +110,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person_add_alt_1_rounded,
                         color: Colors.white,
-                        size: 44,
+                        size: compact ? 36 : 44,
                       ),
                     ),
                   ),
@@ -136,11 +142,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 28),
+                  SizedBox(height: compact ? 16 : 28),
 
                   // Kartu Form Register
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(compact ? 18 : 24),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),

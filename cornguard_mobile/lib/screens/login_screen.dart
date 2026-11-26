@@ -59,27 +59,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 700 ||
+        MediaQuery.textScalerOf(context).scale(1) > 1.15;
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 16 : 24,
+              vertical: compact ? 12 : 24,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 24),
+                  SizedBox(height: compact ? 4 : 24),
 
                   // Logo CornGuard
                   Center(
                     child: Container(
-                      width: 100,
-                      height: 100,
+                      width: compact ? 76 : 100,
+                      height: compact ? 76 : 100,
                       decoration: BoxDecoration(
                         color: primaryGreen,
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(compact ? 24 : 30),
                         boxShadow: [
                           BoxShadow(
                             color: primaryGreen.withValues(alpha: 0.18),
@@ -88,10 +94,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.eco_rounded,
                         color: Colors.white,
-                        size: 58,
+                        size: compact ? 44 : 58,
                       ),
                     ),
                   ),
@@ -120,11 +126,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 36),
+                  SizedBox(height: compact ? 20 : 36),
 
                   // Kartu Login
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(compact ? 18 : 24),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
