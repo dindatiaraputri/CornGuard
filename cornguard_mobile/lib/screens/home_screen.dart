@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:cornguard_mobile/screens/crop_photo_screen.dart';
 import 'package:cornguard_mobile/models/disease_info.dart';
 import 'package:cornguard_mobile/models/history_entry.dart';
 import 'package:cornguard_mobile/services/api_services.dart';
@@ -40,15 +42,34 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // Foto hasil crop dikecilkan ke maks. 400x400 (JPEG) supaya ringan disimpan.
+  Uint8List _prepareAvatar(Uint8List bytes) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return bytes;
+    final size = decoded.width > 400 ? 400 : decoded.width;
+    final resized = img.copyResize(decoded, width: size, height: size);
+    return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+  }
+
   Future<void> _pickPhoto(void Function(void Function()) setDialog) async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      maxWidth: 400,
-      maxHeight: 400,
-      imageQuality: 80,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 90,
     );
     if (picked == null) return;
-    final bytes = await picked.readAsBytes();
+    final original = await picked.readAsBytes();
+    if (!mounted) return;
+
+    // Buka layar crop; hasilnya null jika pengguna membatalkan.
+    final cropped = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(builder: (_) => CropPhotoScreen(image: original)),
+    );
+    if (cropped == null) return;
+
+    final bytes = _prepareAvatar(cropped);
     await ApiServices.setProfilePhoto(_username, bytes);
     if (!mounted) return;
     setState(() => _photo = bytes);
